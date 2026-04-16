@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cat <<USAGE
+Moodle Claude Runner
+
+This command surface manages the Moodle checkout and moodle-docker workflow.
+Browser MCP and Atlassian MCP are configured in the Claude Code client.
+Agentic orchestrator is expected separately for non-trivial Moodle discovery tasks.
+In practice, verify it in its own repo with the health command plus a real query or pilot-run.
+
+Core lifecycle:
+  ./bin/up [compose-args...]           Start services
+  ./bin/down [compose-args...]         Stop services
+  ./bin/ps [compose-args...]           Show service status
+  ./bin/logs [service...]              Follow docker logs
+  ./bin/doctor                         Validate env and docker wiring
+  ./bin/smoke                          Run a lightweight harness smoke test
+  ./bin/feature-smoke [flags...]       Run a real install + PHPUnit + Behat smoke workflow
+
+Moodle setup and tests:
+  ./bin/install [install-args...]
+  ./bin/phpunit-init [args...]
+  ./bin/phpunit [test/filter...]
+  ./bin/behat-init [args...]
+  ./bin/behat [args...]
+
+Quality checks:
+  ./bin/phpcs <path...>                Run host PHPCS using the moodle standard
+  ./bin/phpcbf <path...>               Run host PHPCBF using the moodle standard
+  ./bin/changed-files [base-ref]       List changed files against an explicit or auto-detected base
+  ./bin/preflight [paths...]
+
+PHPCS defaults:
+  PHPCS_BIN=phpcs, PHPCBF_BIN=phpcbf, PHPCS_STANDARD=moodle
+  Set PHPCS_STANDARD=moodle-extra for a stricter pass when needed
+
+Container command helpers:
+  ./bin/web <command...>               Exec in web service as WEBSERVER_USER
+  ./bin/web-root <command...>          Exec in web service as default/root user
+  ./bin/mdc <compose-args...>          Raw moodle-docker-compose passthrough
+USAGE

@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "$0")/lib.sh"
+
+if ! mcc_capture_web phpunit_probe test -x "${PHPUNIT_BIN}"; then
+  mcc_fail "PHPUnit binary is not executable in the web container at ${PHPUNIT_BIN}. Check your Moodle install or override PHPUNIT_BIN in .claude.env."
+fi
+
+PHPUNIT_INIT_CLI="$(mcc_phpunit_init_cli_path)" || mcc_fail "Missing PHPUnit init CLI in Moodle checkout under admin/tool/phpunit/cli/init.php or public/admin/tool/phpunit/cli/init.php"
+
+if ! mcc_capture_web phpunit_config_probe test -f phpunit.xml; then
+  mcc_fail "PHPUnit is not initialized in the container working copy. Run ./bin/phpunit-init first."
+fi
+
+if ! mcc_exec_web "${PHPUNIT_BIN}" "$@"; then
+  echo "PHPUnit failed. If this is a fresh environment, run ./bin/phpunit-init first." >&2
+  exit 1
+fi

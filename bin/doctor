@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "$0")/lib.sh"
+
+mcc_validate_env
+
+echo "mcc root            : ${MCC_ROOT}"
+echo "env file            : ${MCC_ENV_FILE}"
+echo "moodle dir          : ${MOODLE_DIR}"
+echo "moodle-docker dir   : ${MOODLE_DOCKER_DIR}"
+echo "compose binary      : ${MDOCKER_COMPOSE}"
+echo "webserver service   : ${WEBSERVER_SERVICE}"
+echo "webserver user      : ${WEBSERVER_USER}"
+
+echo
+echo "Local checks"
+mcc_print_check "OK" "moodle dir" "${MOODLE_DIR}"
+mcc_print_check "OK" "moodle checkout" "Found Moodle root markers and install CLI"
+
+if mcc_is_git_repo; then
+  mcc_print_check "OK" "moodle git repo" "$(cd "${MOODLE_DIR}" && git rev-parse --short HEAD)"
+else
+  mcc_fail "MOODLE_DIR is not a git repository: ${MOODLE_DIR}"
+fi
+
+INSTALL_CLI="$(mcc_install_cli_path)" || mcc_fail "Missing install CLI in Moodle checkout."
+PHPUNIT_INIT_CLI="$(mcc_phpunit_init_cli_path)" || mcc_fail "Missing PHPUnit init CLI in Moodle checkout."
+BEHAT_INIT_CLI="$(mcc_behat_init_cli_path)" || mcc_fail "Missing Behat init CLI in Moodle checkout."
+BEHAT_RUN_CLI="$(mcc_behat_run_cli_path)" || mcc_fail "Missing Behat run CLI in Moodle checkout."
+
+mcc_print_check "OK" "moodle file" "${INSTALL_CLI}"
+mcc_print_check "OK" "moodle file" "${PHPUNIT_INIT_CLI}"
+mcc_print_check "OK" "moodle file" "${BEHAT_INIT_CLI}"
+mcc_print_check "OK" "moodle file" "${BEHAT_RUN_CLI}"
+
+echo
+echo "Host tooling checks"
+
+if mcc_host_binary_is_runnable "${PHPCS_BIN}"; then
+  if mcc_host_standard_is_available "${PHPCS_BIN}"; then
+    mcc_print_check "OK" "phpcs on host" "${PHPCS_BIN} with ${PHPCS_STANDARD} standard"
+  else
+    mcc_print_check "WARN" "phpcs on host" "${PHPCS_BIN} is runnable, but ${PHPCS_STANDARD} standard is unavailable"
+  fi
+else
+  mcc_print_check "WARN" "phpcs on host" "${PHPCS_BIN} is not runnable from ${MOODLE_DIR}"
+fi
+
+if mcc_host_binary_is_runnable "${PHPCBF_BIN}"; then
+  mcc_print_check "OK" "phpcbf on host" "${PHPCBF_BIN}"
+else
+  mcc_print_check "WARN" "phpcbf on host" "${PHPCBF_BIN} is not runnable from ${MOODLE_DIR}"
+fi
+
+echo
+echo "Container checks"
+
+docker_ps_output=""
+if mcc_capture_web docker_php_output php --version; then
+  mcc_print_check "OK" "php in web container" "$(printf '%s\n' "${docker_php_output}" | head -n 1)"
+else
+  mcc_fail "Unable to execute php in the ${WEBSERVER_SERVICE} container. Check ./bin/up and your Docker service name."
+fi
+
+docker_ps_output="$(mcc_mdc ps 2>&1)" || mcc_fail "Unable to inspect Docker services. Check that moodle-docker is running and reachable."
+mcc_print_check "OK" "docker services" "moodle-docker-compose ps succeeded"
+
+if mcc_capture_web moodle_mount_probe test -f "${INSTALL_CLI}"; then
+  mcc_print_check "OK" "mounted Moodle code" "${INSTALL_CLI} is visible inside the web container"
+else
+  mcc_fail "The web container cannot see ${INSTALL_CLI}. Verify the Moodle checkout is mounted into the container."
+fi
+
+if mcc_capture_web phpunit_binary_probe test -x "${PHPUNIT_BIN}"; then
+  mcc_print_check "OK" "phpunit binary" "${PHPUNIT_BIN}"
+else
+  mcc_fail "PHPUnit binary is not executable in the web container at ${PHPUNIT_BIN}"
+fi
+
+if mcc_capture_web behat_cli_probe test -f "${BEHAT_RUN_CLI}"; then
+  mcc_print_check "OK" "behat cli in container" "${BEHAT_RUN_CLI}"
+else
+  mcc_fail "Behat CLI is not visible in the web container at ${BEHAT_RUN_CLI}"
+fi
+
+if mcc_capture_web phpunit_init_probe test -f "${PHPUNIT_INIT_CLI}"; then
+  mcc_print_check "OK" "phpunit cli in container" "${PHPUNIT_INIT_CLI}"
+else
+  mcc_fail "PHPUnit CLI is not visible in the web container at ${PHPUNIT_INIT_CLI}"
+fi
+
+echo
+echo "Summary"
+echo "${docker_ps_output}"

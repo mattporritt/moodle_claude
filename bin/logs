@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "$0")/lib.sh"
+
+if [[ $# -eq 0 ]]; then
+  mcc_mdc logs --tail=200 -f
+else
+  mcc_mdc logs --tail=200 -f "$@"
+fi

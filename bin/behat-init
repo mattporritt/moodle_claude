@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "$0")/lib.sh"
+
+mcc_ensure_moodle_checkout
+BEHAT_INIT_CLI="$(mcc_behat_init_cli_path)" || mcc_fail "Missing Behat init CLI in Moodle checkout under admin/tool/behat/cli/init.php or public/admin/tool/behat/cli/init.php"
+
+mcc_exec_web php "${BEHAT_INIT_CLI}" "$@"

@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "$0")/lib.sh"
+
+if [[ $# -eq 0 ]]; then
+  mcc_fail "Usage: ./bin/web <command...>"
+fi
+
+mcc_exec_web_as_user "${WEBSERVER_USER}" "$@"

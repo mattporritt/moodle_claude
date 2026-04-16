@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "$0")/lib.sh"
+
+mcc_ensure_moodle_git_repo
+
+BASE_REF="$(mcc_resolve_base_ref "${1:-}")"
+
+(
+  cd "${MOODLE_DIR}"
+  git diff --name-only "${BASE_REF}"...HEAD
+)

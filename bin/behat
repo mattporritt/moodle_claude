@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "$0")/lib.sh"
+
+BEHAT_RUN_CLI="$(mcc_behat_run_cli_path)" || mcc_fail "Missing Behat run CLI in Moodle checkout under admin/tool/behat/cli/run.php or public/admin/tool/behat/cli/run.php"
+
+if ! mcc_behat_looks_initialized; then
+  echo "Behat does not appear to be initialized yet. Run ./bin/behat-init first if this is a fresh environment." >&2
+fi
+
+if ! mcc_exec_web_as_user "${WEBSERVER_USER}" php "${BEHAT_RUN_CLI}" "$@"; then
+  echo "Behat failed. If this is a fresh environment, run ./bin/behat-init first." >&2
+  exit 1
+fi

@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "$0")/lib.sh"
+
+TARGETS=("$@")
+FILTERED_TARGETS=()
+AUTO_DETECTED=false
+
+function preflight_should_lint() {
+  local target="$1"
+
+  if [[ -d "${MOODLE_DIR}/${target}" ]]; then
+    return 0
+  fi
+
+  case "${target}" in
+    *.php|*.inc)
+      return 0
+      ;;
+  esac
+
+  return 1
+}
+
+if [[ ${#TARGETS[@]} -eq 0 ]]; then
+  AUTO_DETECTED=true
+  while IFS= read -r target; do
+    [[ -n "${target}" ]] && TARGETS+=("${target}")
+  done < <("$(dirname "$0")/changed-files")
+fi
+
+if [[ "${AUTO_DETECTED}" == "true" ]]; then
+  for target in "${TARGETS[@]}"; do
+    if preflight_should_lint "${target}"; then
+      FILTERED_TARGETS+=("${target}")
+    fi
+  done
+  TARGETS=("${FILTERED_TARGETS[@]}")
+fi
+
+if [[ ${#TARGETS[@]} -eq 0 ]]; then
+  echo "No files to lint."
+  exit 0
+fi
+
+"$(dirname "$0")/phpcs" "${TARGETS[@]}"

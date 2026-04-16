@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "$0")/lib.sh"
+
+echo "Running mcc smoke test..."
+echo
+
+"$(dirname "$0")/doctor"
+
+echo
+echo "Lightweight runtime checks"
+
+INSTALL_CLI="$(mcc_install_cli_path)" || mcc_fail "Missing install CLI in Moodle checkout."
+PHPUNIT_INIT_CLI="$(mcc_phpunit_init_cli_path)" || mcc_fail "Missing PHPUnit init CLI in Moodle checkout."
+BEHAT_RUN_CLI="$(mcc_behat_run_cli_path)" || mcc_fail "Missing Behat run CLI in Moodle checkout."
+
+function smoke_expect_present() {
+  local label="$1"
+  local output="$2"
+
+  if [[ "${output}" == "present" ]]; then
+    mcc_print_check "OK" "${label}" "${output}"
+  else
+    mcc_fail "${label} probe returned '${output}' instead of 'present'."
+  fi
+}
+
+if mcc_capture_web smoke_pwd pwd; then
+  mcc_print_check "OK" "container working directory" "${smoke_pwd}"
+else
+  mcc_fail "Unable to determine the web container working directory."
+fi
+
+if mcc_capture_web smoke_install_probe sh -lc "test -f '${INSTALL_CLI}' && printf present || printf missing"; then
+  smoke_expect_present "moodle install CLI in container" "${smoke_install_probe}"
+else
+  mcc_fail "Unable to validate Moodle CLI visibility inside the web container."
+fi
+
+if mcc_capture_web smoke_phpunit_probe sh -lc "test -x '${PHPUNIT_BIN}' && printf present || printf missing"; then
+  smoke_expect_present "phpunit binary probe" "${smoke_phpunit_probe}"
+else
+  mcc_fail "Unable to probe PHPUnit in the web container."
+fi
+
+if mcc_capture_web smoke_phpunit_init_probe sh -lc "test -f '${PHPUNIT_INIT_CLI}' && printf present || printf missing"; then
+  smoke_expect_present "phpunit init CLI probe" "${smoke_phpunit_init_probe}"
+else
+  mcc_fail "Unable to probe PHPUnit init CLI in the web container."
+fi
+
+if mcc_capture_web smoke_behat_probe sh -lc "test -f '${BEHAT_RUN_CLI}' && printf present || printf missing"; then
+  smoke_expect_present "behat CLI probe" "${smoke_behat_probe}"
+else
+  mcc_fail "Unable to probe Behat CLI in the web container."
+fi
+
+echo
+echo "Smoke test complete."

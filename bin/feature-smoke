@@ -1,0 +1,152 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "$0")/lib.sh"
+
+BIN_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+FEATURE_SMOKE_PHPUNIT_TARGET="${FEATURE_SMOKE_PHPUNIT_TARGET:-public/lib/tests/check_test.php}"
+FEATURE_SMOKE_BEHAT_TAGS="${FEATURE_SMOKE_BEHAT_TAGS:-@core_cache&&~@javascript}"
+
+RESET=false
+SKIP_BEHAT=false
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --reset)
+      RESET=true
+      ;;
+    --skip-behat)
+      SKIP_BEHAT=true
+      ;;
+    -h|--help)
+      cat <<USAGE
+Usage: ./bin/feature-smoke [--reset] [--skip-behat]
+
+Runs a real Moodle workflow smoke test:
+  1. Start or reuse the Docker environment
+  2. Install Moodle if needed
+  3. Initialise PHPUnit and run a small PHPUnit target
+  4. Initialise Behat and run a small Behat target
+
+Flags:
+  --reset       Run ./bin/down first, then ./bin/up. This destroys the DB and
+                implies a reinstall is needed.
+  --skip-behat  Skip the Behat init/run steps.
+
+Environment overrides:
+  FEATURE_SMOKE_PHPUNIT_TARGET   Default: ${FEATURE_SMOKE_PHPUNIT_TARGET}
+  FEATURE_SMOKE_BEHAT_TAGS       Default: ${FEATURE_SMOKE_BEHAT_TAGS}
+USAGE
+      exit 0
+      ;;
+    *)
+      mcc_fail "Unknown argument: $1"
+      ;;
+  esac
+  shift
+done
+
+function feature_smoke_run_step() {
+  local label="$1"
+  shift
+  local cmd=("$@")
+
+  echo
+  echo "==> ${label}"
+  echo "    Command: ${cmd[*]}"
+
+  if ! "${cmd[@]}"; then
+    echo >&2
+    echo "Step failed: ${label}" >&2
+    echo "Command failed: ${cmd[*]}" >&2
+    echo "Try running the command directly for more detail, then rerun ./bin/feature-smoke." >&2
+    exit 1
+  fi
+}
+
+function feature_smoke_environment_running() {
+  local output
+  mcc_capture_web output php --version
+}
+
+function feature_smoke_wait_for_environment() {
+  local attempts=30
+  local output=""
+
+  for ((i = 1; i <= attempts; i++)); do
+    if mcc_capture_web output php --version; then
+      return 0
+    fi
+    sleep 2
+  done
+
+  mcc_fail "Web container did not become ready after waiting. Try ./bin/ps and ./bin/logs webserver."
+}
+
+function feature_smoke_install_if_needed() {
+  local logfile
+  logfile="$(mktemp "${TMPDIR:-/tmp}/feature-smoke-install.XXXXXX")"
+
+  echo
+  echo "==> Install Moodle if needed"
+  echo "    Command: ${BIN_DIR}/install"
+
+  if "${BIN_DIR}/install" 2>&1 | tee "${logfile}"; then
+    rm -f "${logfile}"
+    return 0
+  fi
+
+  if grep -Fq "Database tables already present; CLI installation cannot continue." "${logfile}"; then
+    echo "Install status: Moodle already appears to be installed, skipping reinstall."
+    rm -f "${logfile}"
+    return 0
+  fi
+
+  echo >&2
+  echo "Step failed: Install Moodle if needed" >&2
+  echo "Command failed: ${BIN_DIR}/install" >&2
+  echo "If you expected a clean environment, rerun ./bin/feature-smoke --reset." >&2
+  rm -f "${logfile}"
+  exit 1
+}
+
+echo "Running feature smoke test..."
+echo "Repository root : ${MCC_ROOT}"
+echo "Moodle checkout : ${MOODLE_DIR}"
+echo "PHPUnit target  : ${FEATURE_SMOKE_PHPUNIT_TARGET}"
+if [[ "${SKIP_BEHAT}" == "true" ]]; then
+  echo "Behat target    : skipped"
+else
+  echo "Behat tags      : ${FEATURE_SMOKE_BEHAT_TAGS}"
+fi
+
+if [[ "${RESET}" == "true" ]]; then
+  echo
+  echo "Reset requested. ./bin/down destroys the DB and a reinstall will be required."
+  feature_smoke_run_step "Reset environment" "${BIN_DIR}/down"
+fi
+
+if feature_smoke_environment_running; then
+  echo
+  echo "Environment status: already running, reusing current containers."
+else
+  feature_smoke_run_step "Start environment" "${BIN_DIR}/up"
+fi
+
+feature_smoke_wait_for_environment
+feature_smoke_install_if_needed
+
+feature_smoke_run_step "Initialise PHPUnit" "${BIN_DIR}/phpunit-init"
+feature_smoke_run_step "Run PHPUnit smoke target" "${BIN_DIR}/phpunit" "${FEATURE_SMOKE_PHPUNIT_TARGET}"
+
+if [[ "${SKIP_BEHAT}" == "true" ]]; then
+  echo
+  echo "Behat step skipped by request."
+else
+  feature_smoke_run_step "Initialise Behat" "${BIN_DIR}/behat-init"
+  feature_smoke_run_step "Run Behat smoke target" "${BIN_DIR}/behat" "--tags=${FEATURE_SMOKE_BEHAT_TAGS}"
+fi
+
+echo
+echo "Feature smoke completed successfully."
+echo "Validated: environment startup, Moodle install state, PHPUnit init/run, and Behat init/run."

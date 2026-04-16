@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "$0")/lib.sh"
+
+if [[ $# -eq 0 ]]; then
+  mcc_fail "Usage: ./bin/phpcs <path...>"
+fi
+
+mcc_run_host_phpcs_tool "${PHPCS_BIN}" "phpcs" "PHPCS_BIN" "$@"

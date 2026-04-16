@@ -1,0 +1,6 @@
+.DS_Store
+__MACOSX/
+.idea/
+.venv/
+.claude.env
+_smoke_test/
