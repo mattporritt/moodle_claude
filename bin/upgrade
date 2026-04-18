@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "$0")/lib.sh"
+mcc_ensure_repo_root
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  cat <<USAGE
+Usage: ./bin/upgrade [upgrade-args...]
+
+Runs Moodle CLI upgrade in the web container using the current Moodle checkout.
+Use this after plugin-discovered or upgrade-sensitive changes such as new
+settings pages, db definitions, or other metadata-driven features.
+USAGE
+  exit 0
+fi
+
+mcc_ensure_moodle_checkout
+UPGRADE_CLI="$(mcc_upgrade_cli_path)" || mcc_fail "Missing upgrade CLI in Moodle checkout."
+
+mcc_exec_web php "${UPGRADE_CLI}" "$@"

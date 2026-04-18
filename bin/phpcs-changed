@@ -1,0 +1,190 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "$0")/lib.sh"
+
+BASE_REF=""
+declare -a PATH_ARGS=()
+declare -a TARGETS=()
+declare -a FULL_FILE_TARGETS=()
+declare -a FILTERED_TARGETS=()
+declare -a UNIQUE_TARGETS=()
+declare -a FULL_FILE_MARKERS=()
+HAS_PATH_ARGS=false
+
+function usage() {
+  cat <<USAGE
+Usage: ./bin/phpcs-changed [--base-ref <ref>] [path...]
+
+Run PHPCS on changed PHP targets in the Moodle checkout, but only report
+violations on changed lines for tracked legacy files.
+
+- New or untracked PHP files are checked as full files.
+- Existing tracked files are checked, but only messages on changed lines are
+  reported.
+- If no paths are provided, changed files are auto-detected against the
+  configured or auto-detected base ref.
+USAGE
+}
+
+function should_lint_target() {
+  local target="$1"
+
+  if [[ -d "${MOODLE_DIR}/${target}" ]]; then
+    return 0
+  fi
+
+  case "${target}" in
+    *.php|*.inc)
+      return 0
+      ;;
+  esac
+
+  return 1
+}
+
+function array_contains() {
+  local needle="$1"
+  shift
+  local item
+  for item in "$@"; do
+    if [[ "${item}" == "${needle}" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --base-ref)
+      [[ $# -ge 2 ]] || mcc_fail "Missing value for --base-ref"
+      BASE_REF="$2"
+      shift 2
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      PATH_ARGS+=("$1")
+      HAS_PATH_ARGS=true
+      shift
+      ;;
+  esac
+done
+
+BASE_REF="$(mcc_resolve_base_ref "${BASE_REF}")"
+
+if [[ "${HAS_PATH_ARGS}" == "true" ]]; then
+  while IFS= read -r target; do
+    [[ -n "${target}" ]] && TARGETS+=("${target}")
+  done < <(mcc_changed_files_in_worktree "${BASE_REF}" "${PATH_ARGS[@]}")
+else
+  while IFS= read -r target; do
+    [[ -n "${target}" ]] && TARGETS+=("${target}")
+  done < <(mcc_changed_files_in_worktree "${BASE_REF}")
+fi
+
+if [[ "${HAS_PATH_ARGS}" == "true" ]]; then
+  while IFS= read -r target; do
+    [[ -n "${target}" ]] && TARGETS+=("${target}")
+  done < <(mcc_untracked_files_in_worktree "${PATH_ARGS[@]}")
+else
+  while IFS= read -r target; do
+    [[ -n "${target}" ]] && TARGETS+=("${target}")
+  done < <(mcc_untracked_files_in_worktree)
+fi
+
+if [[ ${#TARGETS[@]} -eq 0 ]]; then
+  echo "No changed files to lint."
+  exit 0
+fi
+
+for target in "${TARGETS[@]}"; do
+  if ! should_lint_target "${target}"; then
+    continue
+  fi
+
+  if [[ ${#UNIQUE_TARGETS[@]} -eq 0 ]] || ! array_contains "${target}" "${UNIQUE_TARGETS[@]}"; then
+    UNIQUE_TARGETS+=("${target}")
+  fi
+done
+
+if [[ ${#UNIQUE_TARGETS[@]} -eq 0 ]]; then
+  echo "No PHPCS-relevant changed files to lint."
+  exit 0
+fi
+
+while IFS=$'\t' read -r status path _rest; do
+  [[ -z "${status}" || -z "${path}" ]] && continue
+  case "${status}" in
+    A*|??)
+      if ! should_lint_target "${path}"; then
+        continue
+      fi
+      if [[ ${#FULL_FILE_MARKERS[@]} -eq 0 ]] || ! array_contains "${path}" "${FULL_FILE_MARKERS[@]}"; then
+        FULL_FILE_MARKERS+=("${path}")
+      fi
+      ;;
+  esac
+done < <(
+  {
+    if [[ "${HAS_PATH_ARGS}" == "true" ]]; then
+      mcc_changed_files_with_status "${BASE_REF}" "${PATH_ARGS[@]}"
+      while IFS= read -r untracked; do
+        [[ -n "${untracked}" ]] && printf '??\t%s\n' "${untracked}"
+      done < <(mcc_untracked_files_in_worktree "${PATH_ARGS[@]}")
+    else
+      mcc_changed_files_with_status "${BASE_REF}"
+      while IFS= read -r untracked; do
+        [[ -n "${untracked}" ]] && printf '??\t%s\n' "${untracked}"
+      done < <(mcc_untracked_files_in_worktree)
+    fi
+  }
+)
+
+for target in "${UNIQUE_TARGETS[@]}"; do
+  if [[ ${#FULL_FILE_MARKERS[@]} -gt 0 ]] && array_contains "${target}" "${FULL_FILE_MARKERS[@]}"; then
+    FULL_FILE_TARGETS+=("${target}")
+  else
+    FILTERED_TARGETS+=("${target}")
+  fi
+done
+
+TMPDIR="$(mktemp -d)"
+cleanup() {
+  rm -rf "${TMPDIR}"
+}
+trap cleanup EXIT
+
+DIFF_FILE="${TMPDIR}/diff.txt"
+JSON_FILE="${TMPDIR}/phpcs.json"
+
+(
+  cd "${MOODLE_DIR}"
+  if [[ "${HAS_PATH_ARGS}" == "true" ]]; then
+    git diff -U0 --no-color "${BASE_REF}" -- "${PATH_ARGS[@]}"
+  else
+    git diff -U0 --no-color "${BASE_REF}"
+  fi
+) > "${DIFF_FILE}"
+
+mcc_validate_host_phpcs_tooling "${PHPCS_BIN}" "phpcs" "PHPCS_BIN"
+if mcc_exec_host "${PHPCS_BIN}" --standard="${PHPCS_STANDARD}" --report=json "${UNIQUE_TARGETS[@]}" > "${JSON_FILE}"; then
+  :
+fi
+
+if [[ ${#FULL_FILE_TARGETS[@]} -gt 0 ]]; then
+  printf 'Full-file PHPCS for new files:\n'
+  printf '  %s\n' "${FULL_FILE_TARGETS[@]}"
+fi
+
+if [[ ${#FILTERED_TARGETS[@]} -gt 0 ]]; then
+  printf 'Changed-line PHPCS for tracked files against %s:\n' "${BASE_REF}"
+  printf '  %s\n' "${FILTERED_TARGETS[@]}"
+fi
+
+(
+  cd "${MOODLE_DIR}"
+  php "${MCC_ROOT}/bin/phpcs-changed-filter.php" "${JSON_FILE}" "${DIFF_FILE}" "${FULL_FILE_TARGETS[@]}"
+)

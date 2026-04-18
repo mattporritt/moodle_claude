@@ -1,0 +1,7 @@
+# Copy this file to .claude.identity in the repository root and adjust the values
+# for your local author metadata. Claude should use these values when generating
+# new Moodle file headers and docblocks.
+
+AUTHOR_NAME="Your Name"
+AUTHOR_EMAIL="you@example.com"
+COPYRIGHT_YEAR="2026"

@@ -5,9 +5,11 @@ cat <<USAGE
 Moodle Claude Runner
 
 This command surface manages the Moodle checkout and moodle-docker workflow.
-Browser MCP and Atlassian MCP are configured in the Claude Code client.
+Run all ./bin/* commands from the claude harness repo root, not the parent Moodle checkout.
+Chrome, Firefox, and Atlassian MCP servers are configured in the Claude Code client.
 Agentic orchestrator is expected separately for non-trivial Moodle discovery tasks.
-In practice, verify it in its own repo with the health command plus a real query or pilot-run.
+Verify it in the sibling repo at ~/projects/agentic_orchestrator, not in ~/projects/moodle/claude.
+In practice, verify it there with the verify command plus a real query or pilot-run.
 
 Core lifecycle:
   ./bin/up [compose-args...]           Start services
@@ -15,6 +17,7 @@ Core lifecycle:
   ./bin/ps [compose-args...]           Show service status
   ./bin/logs [service...]              Follow docker logs
   ./bin/doctor                         Validate env and docker wiring
+  ./bin/upgrade [upgrade-args...]      Run Moodle CLI upgrade in the web container
   ./bin/smoke                          Run a lightweight harness smoke test
   ./bin/feature-smoke [flags...]       Run a real install + PHPUnit + Behat smoke workflow
 
@@ -24,16 +27,47 @@ Moodle setup and tests:
   ./bin/phpunit [test/filter...]
   ./bin/behat-init [args...]
   ./bin/behat [args...]
+  ./bin/grunt [grunt-args...]         Run Moodle Grunt from the parent checkout
 
 Quality checks:
   ./bin/phpcs <path...>                Run host PHPCS using the moodle standard
   ./bin/phpcbf <path...>               Run host PHPCBF using the moodle standard
   ./bin/changed-files [base-ref]       List changed files against an explicit or auto-detected base
-  ./bin/preflight [paths...]
+  ./bin/preflight [paths...]           Run the normal targeted PHPCS pass
+  ./bin/preflight --changed-lines      Focus PHPCS on changed lines in tracked files and full new files
+  ./bin/phpcs-changed [--base-ref ref] [path...]
+                                       Advanced helper behind preflight --changed-lines
+
+Admin login defaults:
+  MOODLE_ADMIN_USERNAME=admin, MOODLE_ADMIN_PASSWORD=test
+  Use these for browser validation unless overridden in .claude.env
 
 PHPCS defaults:
   PHPCS_BIN=phpcs, PHPCBF_BIN=phpcbf, PHPCS_STANDARD=moodle
   Set PHPCS_STANDARD=moodle-extra for a stricter pass when needed
+  Use ./bin/preflight --changed-lines for legacy-file edits where only the new
+  or changed lines should be held to current PHPCS expectations
+
+JavaScript / Grunt guidance:
+  Edit Moodle AMD source files in amd/src/ and treat amd/build/*.min.js as
+  generated output. Do not hand-edit built files unless a task is explicitly
+  about generated/vendor assets and that choice is justified.
+  Prefer targeted Grunt runs, for example:
+    ./bin/grunt amd --files=public/mod/example/amd/src/widget.js
+    ./bin/grunt amd --root=public/mod/example
+  Use broader tasks like ./bin/grunt js only when the change genuinely spans
+  AMD, YUI, and React/ESM build surfaces.
+
+Author metadata:
+  Copy .claude.identity.example to .claude.identity and set AUTHOR_NAME,
+  AUTHOR_EMAIL, and COPYRIGHT_YEAR for generated Moodle file headers
+  If .claude.identity is missing, stop before generating new Moodle source files
+  unless the user explicitly approves a fallback
+
+Scheduled task validation:
+  Expected acceptance path: ./bin/preflight, ./bin/upgrade, targeted PHPUnit,
+  explicit admin/cli/scheduled_task.php --execute='\component\task\classname' --force, admin login at
+  /admin/tool/task/scheduledtasks.php, and confirmation of a safe observable effect
 
 Container command helpers:
   ./bin/web <command...>               Exec in web service as WEBSERVER_USER

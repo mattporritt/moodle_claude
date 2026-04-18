@@ -3,10 +3,16 @@ set -euo pipefail
 
 MCC_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MCC_ENV_FILE="${MCC_ENV_FILE:-${MCC_ROOT}/.claude.env}"
+MCC_IDENTITY_FILE="${MCC_IDENTITY_FILE:-${MCC_ROOT}/.claude.identity}"
 
 if [[ -f "${MCC_ENV_FILE}" ]]; then
   # shellcheck disable=SC1090
   source "${MCC_ENV_FILE}"
+fi
+
+if [[ -f "${MCC_IDENTITY_FILE}" ]]; then
+  # shellcheck disable=SC1090
+  source "${MCC_IDENTITY_FILE}"
 fi
 
 MOODLE_DIR="${MOODLE_DIR:-$(cd "${MCC_ROOT}/.." && pwd)}"
@@ -16,15 +22,26 @@ WEBSERVER_SERVICE="${WEBSERVER_SERVICE:-webserver}"
 WEBSERVER_USER="${WEBSERVER_USER:-www-data}"
 MDBROWSER_SERVICE="${MDBROWSER_SERVICE:-browser}"
 PHPUNIT_BIN="${PHPUNIT_BIN:-vendor/bin/phpunit}"
+MCC_CONTAINER_MOODLE_ROOT="${MCC_CONTAINER_MOODLE_ROOT:-/var/www/html}"
+GRUNT_BIN="${GRUNT_BIN:-${MOODLE_DIR}/node_modules/.bin/grunt}"
 PHPCS_BIN="${PHPCS_BIN:-phpcs}"
 PHPCBF_BIN="${PHPCBF_BIN:-phpcbf}"
 PHPCS_STANDARD="${PHPCS_STANDARD:-moodle}"
+AUTHOR_NAME="${AUTHOR_NAME:-}"
+AUTHOR_EMAIL="${AUTHOR_EMAIL:-}"
+COPYRIGHT_YEAR="${COPYRIGHT_YEAR:-$(date +%Y)}"
 
 MDOCKER_COMPOSE="${MDOCKER_COMPOSE:-${MOODLE_DOCKER_BIN_DIR}/moodle-docker-compose}"
 
 function mcc_fail() {
   echo "ERROR: $*" >&2
   exit 1
+}
+
+function mcc_ensure_repo_root() {
+  if [[ "${PWD}" != "${MCC_ROOT}" ]]; then
+    mcc_fail "Run this command from ${MCC_ROOT} (current directory: ${PWD})."
+  fi
 }
 
 function mcc_ensure_file() {
@@ -58,6 +75,12 @@ function mcc_install_cli_path() {
   mcc_first_existing_path \
     "admin/cli/install_database.php" \
     "public/admin/cli/install_database.php"
+}
+
+function mcc_upgrade_cli_path() {
+  mcc_first_existing_path \
+    "admin/cli/upgrade.php" \
+    "public/admin/cli/upgrade.php"
 }
 
 function mcc_phpunit_init_cli_path() {
@@ -120,6 +143,11 @@ function mcc_validate_env() {
   [[ -x "${MDOCKER_COMPOSE}" ]] || mcc_fail "moodle-docker-compose is not executable: ${MDOCKER_COMPOSE}"
 }
 
+function mcc_validate_grunt_tooling() {
+  mcc_ensure_moodle_checkout
+  [[ -x "${GRUNT_BIN}" ]] || mcc_fail "Grunt is not runnable at ${GRUNT_BIN}. Install the Moodle Node dependencies in ${MOODLE_DIR} before running JS builds."
+}
+
 function mcc_mdc() {
   mcc_validate_env
   (
@@ -130,6 +158,15 @@ function mcc_mdc() {
 
 function mcc_exec_web() {
   mcc_mdc exec "${WEBSERVER_SERVICE}" "$@"
+}
+
+function mcc_exec_web_in_moodle_root() {
+  mcc_exec_web sh -lc 'cd "$1" && shift && exec "$@"' sh "${MCC_CONTAINER_MOODLE_ROOT}" "$@"
+}
+
+function mcc_exec_moodle_grunt() {
+  mcc_validate_grunt_tooling
+  mcc_exec_host "${GRUNT_BIN}" "$@"
 }
 
 function mcc_exec_web_as_user() {
@@ -178,6 +215,20 @@ function mcc_capture_web() {
 
   local output
   if output="$(mcc_exec_web "$@" 2>&1)"; then
+    printf -v "${__resultvar}" '%s' "${output}"
+    return 0
+  fi
+
+  printf -v "${__resultvar}" '%s' "${output}"
+  return 1
+}
+
+function mcc_capture_web_in_moodle_root() {
+  local __resultvar="$1"
+  shift
+
+  local output
+  if output="$(mcc_exec_web_in_moodle_root "$@" 2>&1)"; then
     printf -v "${__resultvar}" '%s' "${output}"
     return 0
   fi
@@ -307,6 +358,36 @@ function mcc_run_host_phpcs_tool() {
   mcc_exec_host "${binary}" --standard="${PHPCS_STANDARD}" "$@"
 }
 
+function mcc_changed_files_with_status() {
+  local base_ref="$1"
+  shift || true
+
+  (
+    cd "${MOODLE_DIR}"
+    git diff --name-status "${base_ref}" -- "$@"
+  )
+}
+
+function mcc_changed_files_in_worktree() {
+  local base_ref="$1"
+  shift || true
+
+  (
+    cd "${MOODLE_DIR}"
+    git diff --name-only "${base_ref}" -- "$@"
+  )
+}
+
+function mcc_untracked_files_in_worktree() {
+  (
+    cd "${MOODLE_DIR}"
+    while IFS= read -r path; do
+      [[ -d "${path}" ]] && continue
+      printf '%s\n' "${path}"
+    done < <(git ls-files --others --exclude-standard -- "$@")
+  )
+}
+
 function mcc_file_hint() {
   local relative_path="$1"
   printf '%s/%s' "${MOODLE_DIR}" "${relative_path}"
@@ -322,8 +403,13 @@ Configuration:
   WEBSERVER_SERVICE    Docker service for PHP commands (default: webserver)
   WEBSERVER_USER       User for Behat CLI commands (default: www-data)
   PHPUNIT_BIN          PHPUnit binary path inside container (default: vendor/bin/phpunit)
+  GRUNT_BIN            Grunt binary path on host (default: ${MOODLE_DIR}/node_modules/.bin/grunt)
   PHPCS_BIN            PHPCS command or path on host (default: phpcs)
   PHPCBF_BIN           PHPCBF command or path on host (default: phpcbf)
   PHPCS_STANDARD       PHPCS standard name (default: moodle)
+  MCC_IDENTITY_FILE    Local author metadata file (default: ${MCC_ROOT}/.claude.identity)
+  AUTHOR_NAME          Author name for generated Moodle file headers
+  AUTHOR_EMAIL         Author email for generated Moodle file headers
+  COPYRIGHT_YEAR       Copyright year for generated Moodle file headers (default: current year)
 USAGE
 }
