@@ -49,16 +49,31 @@
   - broader debugging and investigation
 - Treat orchestrator as a thin context assembler over `agentic_devdocs`, `agentic_indexer`, `agentic_sitemap`, and optionally `agentic_debug`.
 - The most relevant current orchestrator entrypoints are:
-  - `health` for preflight and trust checks
-  - `query` for grouped context retrieval
+  - `verify` for fast preflight — preferred quick readiness check; returns `READY`, `DEGRADED`, or `NOT_READY`
+  - `health` for authoritative preflight and trust checks; use `--json` for machine-readable output, `--deep` for routing/eval baseline checks
+  - `query` for grouped context retrieval; supports `--route-mode task|auto|manual` and `--tools docs,code,site,debug`
   - `pilot-run` when a supervised live trial artifact is useful
-  - `review_bundle` when a verification artifact is needed
+  - `pilot-review <trial-id>` to record a human outcome on a completed trial
+  - `pilot-report` to summarise recorded pilot trials
+  - `review_bundle` when a verification artifact is needed: `PYTHONPATH=src python3 -m agentic_orchestrator.review_bundle --config ./config.local.toml`
+  - `install-siblings` to bootstrap all sibling tools in one step (clones repos, creates venvs, runs `composer install` for `agentic_debug`)
 - Do not use orchestrator for clearly local edits where the target files and change shape are already known.
 - When a workflow depends on orchestrator-style discovery, do not guess if orchestrator has not been manually verified. Report the gap and stop that path.
 - Manual verification currently means:
   - a real orchestrator config such as `config.local.toml` exists
-  - `PYTHONPATH=src python3 -m agentic_orchestrator.cli health --config ./config.local.toml` completes without `FAIL`
+  - `PYTHONPATH=src python3 -m agentic_orchestrator.cli verify --config ./config.local.toml` returns `READY` or `DEGRADED` (not `NOT_READY`)
   - at least one real `query` or `pilot-run` succeeds against that config
+- Before relying on orchestrator results, inspect `usable_for` in the `verify --json` or `health --json` output:
+  - `usable_for.docs_lookup` — devdocs wiring, docs DB, and contract sanity are not blocking
+  - `usable_for.code_context` — indexer wiring, index DB, and contract sanity are not blocking
+  - `usable_for.site_navigation` — sitemap wiring, run directory, and contract sanity are not blocking
+  - `usable_for.debug_investigation` — `agentic_debug` is configured and healthy enough to use
+  - Only rely on capabilities currently reported as usable.
+- `agentic_debug` is integrated conservatively. Route to it only for explicit bounded debug families:
+  - interpret or retrieve a stored debug session
+  - plan or execute debug for a PHPUnit selector
+  - plan or execute debug for an allowlisted CLI script
+  - Do not route to `agentic_debug` for general bug reports or open-ended exploration.
 - Once discovery is complete, make direct local Moodle edits and use the existing `./bin/*` harness for linting, tests, runtime checks, and Docker operations.
 - Remember the boundaries:
   - orchestrator is not a code editor
