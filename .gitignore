@@ -4,3 +4,4 @@ __MACOSX/
 .venv/
 .claude.env
 _smoke_test/
+.playwright-mcp/
