@@ -25,6 +25,12 @@
 - For edits in large existing legacy files, focus on keeping changed lines clean rather than fixing every historical PHPCS issue in the file.
 - When generating new Moodle files, use local author metadata from `.claude.identity` and format it as:
   - `@copyright  {year} {Author} <{email}>`
+- `.claude.identity` is sourced as a shell script — it must use shell variable syntax:
+  ```
+  AUTHOR_NAME="Your Name"
+  AUTHOR_EMAIL="you@example.com"
+  ```
+  Copy `.claude.identity.example` as the starting point. Do not use `name=` or `email=` key-value syntax.
 - If `.claude.identity` is missing and the task requires creating new Moodle source files, stop that path and say the local identity file must be created or a fallback explicitly approved first.
 
 ## Standard workflow
@@ -132,7 +138,7 @@
   - treat `amd/build/` as generated output that must be rebuilt when committed assets need refreshing
   - prefer the narrowest practical Grunt run, usually `./bin/grunt amd --files=<sourcefile>` or `./bin/grunt amd --root=<component>`
   - do not claim success on JS changes without saying what Grunt command ran, or why no Grunt run was needed
-- Use `.claude.identity` for new file author metadata when present.
+- Use `.claude.identity` for new file author metadata when present. The file is sourced as shell, so variables must use shell syntax (`AUTHOR_NAME="..."`, `AUTHOR_EMAIL="..."`). Use `.claude.identity.example` as the template.
 - If `.claude.identity` is missing and the task requires new Moodle source files, do not fall back to git identity or invent personal author details. Say the local identity config is missing and stop until the user creates it or explicitly approves a fallback.
 
 ## Git expectations

@@ -3,5 +3,6 @@ __MACOSX/
 .idea/
 .venv/
 .claude.env
+.claude.identity
 _smoke_test/
 .playwright-mcp/

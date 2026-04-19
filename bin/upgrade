@@ -10,6 +10,10 @@ Usage: ./bin/upgrade [upgrade-args...]
 Runs Moodle CLI upgrade in the web container using the current Moodle checkout.
 Use this after plugin-discovered or upgrade-sensitive changes such as new
 settings pages, db definitions, or other metadata-driven features.
+
+Flags --non-interactive and --allow-unstable are added automatically when the
+Moodle release string indicates a dev or alpha build, so you rarely need to
+pass them manually.
 USAGE
   exit 0
 fi
@@ -17,4 +21,14 @@ fi
 mcc_ensure_moodle_checkout
 UPGRADE_CLI="$(mcc_upgrade_cli_path)" || mcc_fail "Missing upgrade CLI in Moodle checkout."
 
-mcc_exec_web php "${UPGRADE_CLI}" "$@"
+# Detect whether the Moodle release is a dev/alpha build and auto-add the
+# flags that the CLI upgrade script requires for non-interactive use.
+VERSION_PHP="${MOODLE_DIR}/public/version.php"
+[[ -f "${VERSION_PHP}" ]] || VERSION_PHP="${MOODLE_DIR}/version.php"
+
+UPGRADE_FLAGS=(--non-interactive)
+if [[ -f "${VERSION_PHP}" ]] && grep -qiE '\$release\s*=\s*.*dev|alpha' "${VERSION_PHP}"; then
+  UPGRADE_FLAGS+=(--allow-unstable)
+fi
+
+mcc_exec_web php "${UPGRADE_CLI}" "${UPGRADE_FLAGS[@]}" "$@"
