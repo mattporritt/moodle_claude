@@ -108,9 +108,11 @@
 - Use Chrome MCP for Chromium-based UI checks, console/network inspection, screenshots, and performance traces.
 - Use Firefox MCP for second-browser reproduction and Gecko-specific behaviour.
 - Use Atlassian MCP for Jira and Confluence search, issue/page retrieval, and small coordination tasks.
+- Both Chrome and Firefox MCP run headless — the browser process is hidden and cannot be accidentally closed by the user. Output files (snapshots, logs) go to `~/.claude/playwright-output/`.
 - When a task depends on an MCP server, start with a lightweight connectivity check:
   - Chrome or Firefox: open a blank or `data:` page and confirm a snapshot loads.
   - Atlassian: fetch current user info and list accessible resources.
+- If a Chrome or Firefox MCP call fails with "Target page, context or browser has been closed" or similar, the MCP server process is still alive but has lost its browser context. This requires a Claude Code session restart to recover — it cannot be fixed mid-session by retrying. Note the gap in the task summary and continue with other validation methods (CLI, `curl`).
 - Keep MCP use task-focused. Do not browse aimlessly when a targeted read or reproduction is enough.
 - Do not hardcode tenant-specific Atlassian IDs, tokens, or machine-specific MCP details in committed files.
 
