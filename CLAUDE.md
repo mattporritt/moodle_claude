@@ -20,6 +20,11 @@
 - Default PHPCS standard is `moodle`; use `moodle-extra` only when the task explicitly calls for the stricter ruleset.
 - Reuse existing Moodle APIs/patterns before introducing new abstractions.
 - Keep changes minimal, localized, and issue-focused.
+- For Moodle external web service `execute()` methods, always follow this access control order:
+  1. `self::validate_parameters(self::execute_parameters(), [...])` — parameter validation
+  2. `$context = \context_system::instance();` (or appropriate context) + `self::validate_context($context)` — mandatory for every execute(); validates session and context
+  3. `require_capability('plugin:capability', $context)` — only for protected functions; omit for public endpoints with `loginrequired => false`
+  Skipping `validate_context()` is never correct, even for public read functions.
 - For Moodle AMD JavaScript work, `amd/src/` is the source of truth and `amd/build/` is generated output.
 - For newly created files, full-file PHPCS is appropriate.
 - For edits in large existing legacy files, focus on keeping changed lines clean rather than fixing every historical PHPCS issue in the file.
