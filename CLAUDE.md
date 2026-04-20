@@ -55,6 +55,7 @@
    - `./bin/phpunit <targeted tests>`
    - `./bin/behat <targeted tags>` for behaviour/UI changes
    - `./bin/upgrade` when plugin discovery or upgrade-sensitive metadata changed
+   - `docker exec moodlemaster-webserver-1 php /var/www/html/admin/cli/scheduled_task.php --execute='\plugin\task\classname'` to smoke-test a scheduled task — confirms the code path runs without fatal errors and `mtrace()` output is correct; this is a runtime check only, not a substitute for PHPUnit tests that assert task logic
    - `./bin/smoke` when validating a fresh harness setup
    - `./bin/feature-smoke` when validating the full install/init/test workflow
    - `docker exec moodlemaster-webserver-1 php /var/www/html/admin/cli/purge_caches.php` after adding lang strings or template changes to an already-installed plugin without a version bump — `./bin/upgrade` alone does not clear the string cache in this case
