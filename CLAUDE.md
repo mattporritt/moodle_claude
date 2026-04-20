@@ -52,6 +52,7 @@
    - `./bin/upgrade` when plugin discovery or upgrade-sensitive metadata changed
    - `./bin/smoke` when validating a fresh harness setup
    - `./bin/feature-smoke` when validating the full install/init/test workflow
+   - `docker exec moodlemaster-webserver-1 php /var/www/html/admin/cli/purge_caches.php` after adding lang strings or template changes to an already-installed plugin without a version bump — `./bin/upgrade` alone does not clear the string cache in this case
 7. Fix failures before proposing commit.
 8. Prepare commit suggestions:
    - one logical change per commit
