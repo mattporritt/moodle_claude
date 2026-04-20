@@ -25,6 +25,8 @@
   2. `$context = \context_system::instance();` (or appropriate context) + `self::validate_context($context)` — mandatory for every execute(); validates session and context
   3. `require_capability('plugin:capability', $context)` — only for protected functions; omit for public endpoints with `loginrequired => false`
   Skipping `validate_context()` is never correct, even for public read functions.
+- Every Moodle plugin must include a privacy provider at `classes/privacy/provider.php`. If the plugin stores no personal data, implement `\core_privacy\local\metadata\null_provider` with a `get_reason()` method returning a lang string key (e.g. `'privacy:metadata'`), and add the corresponding string to the lang file. Omitting this causes the core privacy compliance test (`core_privacy\privacy\provider_test`) to fail.
+- PHPUnit tests are required for all web service functions and scheduled tasks — a CLI smoke-run proves the code path executes but does not assert correctness. Test files live in `tests/external/` and `tests/task/` respectively, extend `\advanced_testcase`, and must cover both the default (no config) and configured cases.
 - For Moodle AMD JavaScript work, `amd/src/` is the source of truth and `amd/build/` is generated output.
 - For newly created files, full-file PHPCS is appropriate.
 - For edits in large existing legacy files, focus on keeping changed lines clean rather than fixing every historical PHPCS issue in the file.
