@@ -8,7 +8,12 @@ if ! mcc_behat_looks_initialized; then
   echo "Behat does not appear to be initialized yet. Run ./bin/behat-init first if this is a fresh environment." >&2
 fi
 
-if ! mcc_exec_web_as_user "${WEBSERVER_USER}" php "${BEHAT_RUN_CLI}" "$@"; then
+behat_args=()
+for arg in "$@"; do
+  behat_args+=("$(mcc_normalize_behat_path_arg "${arg}")")
+done
+
+if ! mcc_exec_web_as_user "${WEBSERVER_USER}" php "${BEHAT_RUN_CLI}" "${behat_args[@]}"; then
   echo "Behat failed. If this is a fresh environment, run ./bin/behat-init first." >&2
   exit 1
 fi

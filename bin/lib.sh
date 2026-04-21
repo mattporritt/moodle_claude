@@ -393,6 +393,37 @@ function mcc_file_hint() {
   printf '%s/%s' "${MOODLE_DIR}" "${relative_path}"
 }
 
+function mcc_container_moodle_path() {
+  local relative_path="$1"
+  printf '%s/%s' "${MCC_CONTAINER_MOODLE_ROOT}" "${relative_path}"
+}
+
+function mcc_normalize_behat_path_arg() {
+  local arg="$1"
+
+  if [[ "${arg}" == -* ]]; then
+    printf '%s\n' "${arg}"
+    return 0
+  fi
+
+  if [[ "${arg}" == "${MOODLE_DIR}"/* ]]; then
+    printf '%s\n' "${MCC_CONTAINER_MOODLE_ROOT}${arg#"${MOODLE_DIR}"}"
+    return 0
+  fi
+
+  if [[ -f "${MOODLE_DIR}/${arg}" || -d "${MOODLE_DIR}/${arg}" ]]; then
+    mcc_container_moodle_path "${arg}"
+    return 0
+  fi
+
+  if [[ -f "${MOODLE_DIR}/public/${arg}" || -d "${MOODLE_DIR}/public/${arg}" ]]; then
+    mcc_container_moodle_path "public/${arg}"
+    return 0
+  fi
+
+  printf '%s\n' "${arg}"
+}
+
 function mcc_usage_env() {
   cat <<USAGE
 Configuration:

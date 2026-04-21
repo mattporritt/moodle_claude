@@ -37,11 +37,12 @@ else
   mcc_fail "Unable to validate Moodle CLI visibility inside the web container."
 fi
 
-if mcc_capture_web smoke_phpunit_probe sh -lc "test -x '${PHPUNIT_BIN}' && printf present || printf missing"; then
-  smoke_expect_present "phpunit binary probe" "${smoke_phpunit_probe}"
+if mcc_capture_web_in_moodle_root smoke_phpunit_probe test -x "${PHPUNIT_BIN}"; then
+  smoke_phpunit_probe="present"
 else
-  mcc_fail "Unable to probe PHPUnit in the web container."
+  smoke_phpunit_probe="missing"
 fi
+smoke_expect_present "phpunit binary probe" "${smoke_phpunit_probe}"
 
 if mcc_capture_web smoke_phpunit_init_probe sh -lc "test -f '${PHPUNIT_INIT_CLI}' && printf present || printf missing"; then
   smoke_expect_present "phpunit init CLI probe" "${smoke_phpunit_init_probe}"

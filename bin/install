@@ -5,9 +5,9 @@ source "$(dirname "$0")/lib.sh"
 SITE_FULLNAME="${SITE_FULLNAME:-Moodle Master}"
 SITE_SHORTNAME="${SITE_SHORTNAME:-docker_moodle}"
 SITE_SUMMARY="${SITE_SUMMARY:-Moodle dev site}"
-ADMIN_USER="${ADMIN_USER:-admin}"
-ADMIN_PASS="${ADMIN_PASS:-test}"
-ADMIN_EMAIL="${ADMIN_EMAIL:-admin@example.com}"
+MOODLE_ADMIN_USERNAME="${MOODLE_ADMIN_USERNAME:-${ADMIN_USER:-admin}}"
+MOODLE_ADMIN_PASSWORD="${MOODLE_ADMIN_PASSWORD:-${ADMIN_PASS:-test}}"
+MOODLE_ADMIN_EMAIL="${MOODLE_ADMIN_EMAIL:-${ADMIN_EMAIL:-admin@example.com}}"
 
 mcc_ensure_moodle_checkout
 INSTALL_CLI="$(mcc_install_cli_path)" || mcc_fail "Missing install CLI in Moodle checkout: $(mcc_file_hint "admin/cli/install_database.php")"
@@ -17,7 +17,7 @@ mcc_exec_web php "${INSTALL_CLI}" \
   --fullname="${SITE_FULLNAME}" \
   --shortname="${SITE_SHORTNAME}" \
   --summary="${SITE_SUMMARY}" \
-  --adminuser="${ADMIN_USER}" \
-  --adminpass="${ADMIN_PASS}" \
-  --adminemail="${ADMIN_EMAIL}" \
+  --adminuser="${MOODLE_ADMIN_USERNAME}" \
+  --adminpass="${MOODLE_ADMIN_PASSWORD}" \
+  --adminemail="${MOODLE_ADMIN_EMAIL}" \
   "$@"

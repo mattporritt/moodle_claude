@@ -71,7 +71,7 @@ else
   mcc_fail "The web container cannot see ${INSTALL_CLI}. Verify the Moodle checkout is mounted into the container."
 fi
 
-if mcc_capture_web phpunit_binary_probe test -x "${PHPUNIT_BIN}"; then
+if mcc_capture_web_in_moodle_root phpunit_binary_probe test -x "${PHPUNIT_BIN}"; then
   mcc_print_check "OK" "phpunit binary" "${PHPUNIT_BIN}"
 else
   mcc_fail "PHPUnit binary is not executable in the web container at ${PHPUNIT_BIN}"
