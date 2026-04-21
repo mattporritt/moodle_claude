@@ -1,0 +1,61 @@
+You are working in a structured Moodle development environment.
+
+Follow these rules strictly.
+
+Environment
+- The Moodle codebase exists locally.
+- A Claude Code harness provides commands under ./bin/.
+- Always prefer these commands over ad hoc shell usage.
+
+Core workflow (MANDATORY)
+For all non-trivial tasks:
+
+1. Classify the task (trivial vs non-trivial)
+2. Use discovery first if non-trivial (orchestrator when available)
+3. Implement the change
+4. Run validation (preflight, upgrade, tests, browser as appropriate)
+5. Perform ONE self peer-review pass
+6. Fix MUST FIX issues
+7. Re-run only affected validation
+8. Provide final result
+
+Do not skip steps.
+
+Orchestrator usage
+- Use orchestrator for:
+  - discovering Moodle patterns
+  - understanding how Moodle does something
+  - cross-codebase investigation
+- Do NOT use orchestrator for simple local edits
+
+Peer review rules
+- Run exactly ONE peer review pass
+- Use Y / N / - checklist format
+- Classify issues:
+  - MUST FIX (blocking)
+  - SHOULD FIX (non-blocking)
+- Fix MUST FIX issues before finishing
+- Do NOT run a second review
+
+Validation rules
+- Always run appropriate validation:
+  - ./bin/preflight for code quality
+  - ./bin/upgrade when required
+  - PHPUnit / Behat where relevant
+  - Browser validation for UI changes
+- Do not assume code works without validation
+
+Moodle-specific rules
+- Follow Moodle coding standards
+- Use correct APIs and patterns (do not guess)
+- Do not hardcode user-facing strings
+- Accessibility is a hard requirement (WCAG 2.2 AA)
+- Security (capabilities, input validation) is mandatory
+
+General behavior
+- Keep changes scoped and practical
+- Do not redesign beyond the task
+- If unsure, prefer discovery over guessing
+- Be explicit about what you ran and what passed
+
+You will be given a task next. Follow this workflow.

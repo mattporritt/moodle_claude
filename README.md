@@ -145,6 +145,30 @@ The health check must complete without `FAIL`. At least one real `query` or `pil
 
 See the [agentic_orchestrator README](https://github.com/moodlehq/agentic_orchestrator) for full setup instructions.
 
+## Reusable Prompt Templates
+
+Start with the prompt index in [prompts/README.md](prompts/README.md).
+
+For a brand new Claude Code session, use the priming prompt in [priming-prompt](priming-prompt) first.
+This is not a task-specific workflow prompt. It is the short session-opening prompt that sets the scene, tells Claude about the harness, and establishes the required Moodle development workflow before you give the real task.
+
+Practical use:
+
+1. Start a fresh Claude Code session.
+2. Paste the contents of [priming-prompt](priming-prompt) as the first message.
+3. Then give the real development task.
+
+Reusable task prompts live in `prompts/`:
+
+- [create-local-plugin.md](prompts/create-local-plugin.md)
+- [add-plugin-admin-settings.md](prompts/add-plugin-admin-settings.md)
+- [create-web-service.md](prompts/create-web-service.md)
+- [create-scheduled-task.md](prompts/create-scheduled-task.md)
+- [create-javascript-change.md](prompts/create-javascript-change.md)
+- [create-renderer-mustache-ui.md](prompts/create-renderer-mustache-ui.md)
+
+These are Moodle-specific, orchestrator-aware, and aligned with the current `./bin/*` harness so developers can start Claude Code sessions from a stronger baseline.
+
 ## Claude Code hooks
 
 `.claude/settings.json` can define hooks for Claude Code-specific automation (pre-tool, post-tool, etc.). See the [Claude Code documentation](https://docs.anthropic.com/en/docs/claude-code) for details.
