@@ -152,6 +152,16 @@
 - Use `.claude.identity` for new file author metadata when present. The file is sourced as shell, so variables must use shell syntax (`AUTHOR_NAME="..."`, `AUTHOR_EMAIL="..."`). Use `.claude.identity.example` as the template.
 - If `.claude.identity` is missing and the task requires new Moodle source files, do not fall back to git identity or invent personal author details. Say the local identity config is missing and stop until the user creates it or explicitly approves a fallback.
 
+## Self peer review
+
+After implementation and initial validation on non-trivial tasks, perform a single-pass self peer review before proposing a commit:
+- Use a compact `Y / N / -` checklist format
+- Classify each issue as `MUST FIX` or `SHOULD FIX`
+- Perform exactly one review pass — treat it as a correction step, not a redesign
+- Apply MUST FIX items, then re-run only the affected validation steps
+- Include a short post-fix summary
+- For trivial local edits, this step is optional unless explicitly requested
+
 ## Git expectations
 
 - One logical change per commit.

@@ -58,4 +58,5 @@ Output
 - Explain the practical validation path and any PHPUnit coverage added.
 - List exact commands run and outcomes.
 - Suggest a concise Moodle-style commit message.
+- After implementation and validation, perform the standard single-pass self peer review from CLAUDE.md, then fix any MUST FIX issues and re-run only affected validation.
 ```
