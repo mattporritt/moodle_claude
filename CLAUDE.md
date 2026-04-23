@@ -63,6 +63,7 @@
    - `docker exec moodlemaster-webserver-1 php /var/www/html/admin/cli/scheduled_task.php --execute='\plugin\task\classname'` to smoke-test a scheduled task — confirms the code path runs without fatal errors and `mtrace()` output is correct; this is a runtime check only, not a substitute for PHPUnit tests that assert task logic
    - `./bin/smoke` when validating a fresh harness setup
    - `./bin/feature-smoke` when validating the full install/init/test workflow
+   - `docker exec moodlemaster-webserver-1 php /var/www/html/admin/cli/purge_caches.php` after CSS, SCSS, template, or lang-string changes before browser validation, to avoid stale LMS caches affecting manual or MCP-based checks
    - `docker exec moodlemaster-webserver-1 php /var/www/html/admin/cli/purge_caches.php` after adding lang strings or template changes to an already-installed plugin without a version bump — `./bin/upgrade` alone does not clear the string cache in this case
 7. For non-trivial tasks, perform a self peer-review pass (see Self peer review section):
    - exactly one review pass only
@@ -135,6 +136,9 @@
   - Chrome or Firefox: open a blank or `data:` page and confirm a snapshot loads.
   - Atlassian: fetch current user info and list accessible resources.
 - If a Chrome or Firefox MCP call fails with "Target page, context or browser has been closed" or similar, the MCP server process is still alive but has lost its browser context. This requires a Claude Code session restart to recover — it cannot be fixed mid-session by retrying. Note the gap in the task summary and continue with other validation methods (CLI, `curl`).
+- For non-trivial tasks where rendered UI is part of acceptance, do not defer browser MCP checks until after implementation.
+- If one browser MCP is unavailable, try the other relevant browser MCP promptly rather than waiting for a later validation step to fail.
+- If both browser MCP servers are unavailable and the task depends on real browser inspection, call that out early as a validation blocker or explicit gap.
 - Keep MCP use task-focused. Do not browse aimlessly when a targeted read or reproduction is enough.
 - Do not hardcode tenant-specific Atlassian IDs, tokens, or machine-specific MCP details in committed files.
 - For Jira interaction in this repo, treat `config/jira_field_map.yaml` as the source of truth for field IDs and issue-type-driven workflow metadata.
@@ -159,8 +163,14 @@
 - Log in with the explicit harness credentials from `.claude.env`:
   - `MOODLE_ADMIN_USERNAME`
   - `MOODLE_ADMIN_PASSWORD`
+- For Jira-driven work, finish by manually walking through the current Jira testing instructions after automated checks pass, and treat that pass as part of completion rather than optional follow-up.
+- For browser-facing UI changes, do not stop at "page loads correctly" — explicitly exercise the changed control states that matter for the ticket, such as default, focused, hover, error, and JS-enhanced states where relevant.
+- For decorative UI additions, perform an explicit accessibility sanity check to confirm they do not alter the accessible name or announcement path for the underlying control.
+- For CSS changes involving Bootstrap-managed controls such as `input-group`, toggles, buttons, or wrappers around focused fields, explicitly check focus-state stacking and wrapper interactions rather than assuming the default state is sufficient.
+- If browser behaviour looks wrong after a frontend change, consider stale assets or focus/stacking CSS interactions early, especially in Boost, before assuming the template or PHP logic is incorrect.
 - After implementing admin-facing Moodle features:
   - run `./bin/upgrade` if the feature depends on plugin discovery or upgrade-sensitive metadata
+  - run `docker exec moodlemaster-webserver-1 php /var/www/html/admin/cli/purge_caches.php` if CSS, SCSS, templates, or lang strings changed
   - open `/login/index.php`
   - sign in as the configured admin user
   - navigate to the relevant page, for example `/admin/settings.php?section=<settingspageid>`
@@ -176,6 +186,7 @@
   - absolute host paths under `MOODLE_DIR`, which the wrapper normalizes to container-visible paths
 - For targeted feature execution, prefer Moodle-checkout-relative feature paths from the repo root.
 - The wrapper now normalizes feature paths before handing them to Moodle's Behat runner so feature execution does not depend on the container working directory.
+- If Behat or the acceptance site requires reinitialisation during the task, report that clearly as an environment/setup step and do not blur it into product-level validation.
 
 ## Working with a large codebase
 
@@ -187,6 +198,8 @@
   - treat `amd/build/` as generated output that must be rebuilt when committed assets need refreshing
   - prefer the narrowest practical Grunt run, usually `./bin/grunt amd --files=<sourcefile>` or `./bin/grunt amd --root=<component>`
   - do not claim success on JS changes without saying what Grunt command ran, or why no Grunt run was needed
+- When editing Mustache templates, prefer the clearest readable markup for the local template rather than blindly copying inherited formatting patterns from related templates.
+- Do not cargo-cult Mustache whitespace-control comment fragments such as `{{! ... !}}` when plain multiline HTML attributes are clearer and do not change rendering.
 - Use `.claude.identity` for new file author metadata when present. The file is sourced as shell, so variables must use shell syntax (`AUTHOR_NAME="..."`, `AUTHOR_EMAIL="..."`). Use `.claude.identity.example` as the template.
 - If `.claude.identity` is missing and the task requires new Moodle source files, do not fall back to git identity or invent personal author details. Say the local identity config is missing and stop until the user creates it or explicitly approves a fallback.
 
@@ -205,6 +218,8 @@ After implementation and initial validation on non-trivial tasks, perform a sing
 - One logical change per commit.
 - Use `docs/moodle-branching.md` as the canonical source for Moodle base branches and issue-branch naming.
 - Never commit directly to Moodle core `main` or `MOODLE_*_STABLE` branches.
+- Before starting Jira-driven implementation work, inspect the current Moodle checkout branch and correct it if it is unrelated to the issue.
+- Treat an unexpected existing developer branch in the Moodle checkout as a warning sign that must be resolved before new implementation starts.
 - Create per-issue development branches from the correct base branch, for example `MOODLE_502_STABLE_MDL-12345`.
 - Push development branches to the developer's own fork or repository, not the main Moodle LMS repository.
 - Commit messages should use Moodle issue style: `MDL-12345 component_name: concise imperative summary`

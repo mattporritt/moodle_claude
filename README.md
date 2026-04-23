@@ -176,6 +176,11 @@ Use the Jira-related prompts when the work starts from a Jira ticket or when you
 
 There are two distinct Jira entry paths:
 
+### Quick Start
+
+- Creating or refining a ticket: start with [user-ticket-template.md](prompts/user-ticket-template.md), then use [agent-create-ticket.md](prompts/agent-create-ticket.md).
+- Working from an existing Jira issue: start with [jira-driven-moodle-development-workflow-v1.md](prompts/jira-driven-moodle-development-workflow-v1.md) and include the Jira issue key in your request, for example `MDL-88194`.
+
 ### Create Or Refine A Jira Ticket
 
 Use [user-ticket-template.md](prompts/user-ticket-template.md) to draft the ticket, then give that draft to the agent with [agent-create-ticket.md](prompts/agent-create-ticket.md). The agent clarifies the problem, suggests an issue type for confirmation when not yet settled, and writes back to Jira via Atlassian Rovo MCP first, with REST API and browser fallback.

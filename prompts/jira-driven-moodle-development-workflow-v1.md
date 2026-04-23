@@ -233,6 +233,11 @@ Then proceed to:
 - follow Moodle coding standards
 - ensure minimal, correct changes
 
+If the implementation changes CSS, SCSS, templates, or other browser-cached presentation assets, you MUST purge Moodle caches before browser validation so stale assets do not invalidate the result.
+If the task changes rendered UI, you MUST validate the specific changed control states, not just page-load success. Check the relevant states for the ticket, such as default, focused, hover, error, and JS-enhanced states where applicable.
+If the change adds decorative UI elements, you MUST confirm they do not alter the accessible name or announcement path of the underlying controls.
+If the UI change touches Bootstrap-style grouped controls, wrappers, toggles, or focused inputs, you MUST explicitly check focus-state stacking and wrapper interactions.
+
 ---
 
 # 10. PRE-REVIEW PREPARATION (CRITICAL)
@@ -247,6 +252,9 @@ Before marking ready for peer review, you MUST ensure:
 
 ## Code is complete:
 - passes automated tests (if applicable)
+- browser-facing changes have had Moodle caches purged before manual/browser validation
+- the agent has manually walked through the Jira testing instructions on the rendered UI after automated checks
+- the agent has checked the implemented behaviour against the Jira acceptance criteria item by item, not just with a general visual impression
 - no obvious regressions
 - consistent with Moodle patterns
 
@@ -269,6 +277,7 @@ You MUST prepare a final structured update including:
 - MCP write attempted or not
 - API fallback attempted or not
 - Browser fallback used or not
+- Whether any environment/setup recovery was required during validation, for example Behat reinitialisation
 - Exact update types performed (for example comment, description, testing instructions, field update)
 
 This MUST be suitable for a Jira comment.
