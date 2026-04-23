@@ -35,6 +35,7 @@ Quality checks:
   ./bin/changed-files [base-ref]       List changed files against an explicit or auto-detected base
   ./bin/preflight [paths...]           Run the normal targeted PHPCS pass
   ./bin/preflight --changed-lines      Focus PHPCS on changed lines in tracked files and full new files
+  ./bin/jira-update <issue> [options]  Update common Jira fields/comments through REST fallback
   ./bin/phpcs-changed [--base-ref ref] [path...]
                                        Advanced helper behind preflight --changed-lines
 
@@ -73,4 +74,12 @@ Container command helpers:
   ./bin/web <command...>               Exec in web service as WEBSERVER_USER
   ./bin/web-root <command...>          Exec in web service as default/root user
   ./bin/mdc <compose-args...>          Raw moodle-docker-compose passthrough
+
+Behat path guidance:
+  ./bin/behat accepts option-style args like --tags=@tagname
+  and targeted feature paths such as:
+    ./bin/behat public/local/example/tests/behat/example.feature
+    ./bin/behat local/example/tests/behat/example.feature
+  The wrapper normalizes supported feature paths to container-visible
+  absolute paths before invoking Moodle's Behat runner.
 USAGE

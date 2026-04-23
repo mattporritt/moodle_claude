@@ -51,6 +51,19 @@ Rules:
 - If the task depends on orchestrator-style discovery and orchestrator has not been manually verified, stop and say manual verification is required first.
 - Do not treat orchestrator as a code editor, workflow engine, or replacement for direct local Moodle commands.
 - If a task depends on Chrome, Firefox, or Atlassian MCP, start with a lightweight connectivity smoke check before relying on it.
+- For Jira work, treat read access and write access as separate checks.
+- Publicly readable Jira issues may still reject writes through MCP or the Jira API unless authenticated write access is configured.
+- Prefer Jira interaction in this order:
+  - Atlassian Rovo MCP first
+  - Jira REST API fallback second when JIRA_BASE_URL, JIRA_USER_EMAIL, and JIRA_API_TOKEN are configured in .claude.env
+  - browser-based Jira interaction last when the browser session is authenticated for editing
+- When Jira write-back is part of the task, report:
+  - whether read access succeeded
+  - whether MCP write was attempted
+  - whether MCP write failed because authentication or permissions were insufficient
+  - whether API fallback was attempted
+  - whether browser fallback was used
+  - what update types were applied
 - Run targeted checks for changed code:
   - ./bin/phpcs <touched paths> for explicit whole-file linting
   - ./bin/preflight for the normal targeted PHPCS pass

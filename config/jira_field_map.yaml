@@ -1,0 +1,256 @@
+version: 1
+
+meta:
+  purpose: >
+    Jira field mapping and workflow metadata for Moodle LMS Jira interaction.
+    This file maps human workflow concepts to Jira field IDs and records
+    issue-type-driven development rules.
+  owner: claude
+  notes:
+    - "Use this as the source of truth for Jira field write-back logic."
+    - "Do not guess field IDs in prompts or code if they are not mapped here."
+    - "Unknown mappings should be marked explicitly and verified later."
+
+jira:
+  project_key: MDL
+  instance_hint: "moodle.atlassian.net"
+
+fields:
+  core:
+    summary:
+      jira_field: summary
+      type: system
+      rest_format: string
+      write_endpoint: issue_put_fields
+      known_good_examples:
+        - "./bin/jira-update MDL-12345 --field summary --text 'Short updated summary' --verify"
+    description:
+      jira_field: description
+      type: system
+      rest_format: string
+      write_endpoint: issue_put_fields
+      known_good_examples:
+        - "./bin/jira-update MDL-12345 --field description --file /tmp/description.md --verify"
+      notes:
+        - "Known-good as a plain string via Jira REST v2 in this workspace."
+    issue_type:
+      jira_field: issuetype
+      type: system
+    status:
+      jira_field: status
+      type: system
+    labels:
+      jira_field: labels
+      type: system
+    components:
+      jira_field: components
+      type: system
+    comments:
+      jira_field: comment
+      type: system
+      rest_format: string
+      write_endpoint: issue_comment_post
+      known_good_examples:
+        - "./bin/jira-update MDL-12345 --comment-file /tmp/comment.md --verify"
+      notes:
+        - "Comments are part of the effective specification and must be read."
+        - "Write via POST /rest/api/2/issue/<key>/comment with a string body."
+
+  versions:
+    affects_versions:
+      jira_field: versions
+      type: system
+      notes:
+        - "Represents affected version(s), not necessarily target fix versions."
+    fix_versions:
+      jira_field: fixVersions
+      type: system
+      notes:
+        - "Verify whether this is actively used in Moodle LMS workflow before write-back automation."
+
+  quality:
+    testing_instructions:
+      jira_field: customfield_10214
+      type: custom
+      rest_format: string
+      write_endpoint: issue_put_fields
+      known_good_examples:
+        - "./bin/jira-update MDL-12345 --field testing_instructions --file /tmp/testing.md --verify"
+      notes:
+        - "Structured testing instructions field."
+        - "Required before peer review."
+        - "Jira textarea field."
+
+  branches:
+    main:
+      repository_field:
+        jira_field: customfield_10221
+        type: custom
+        description: "Pull Main Branch"
+        rest_format: string
+        write_endpoint: issue_put_fields
+      diff_field:
+        jira_field: customfield_10247
+        type: custom
+        description: "Pull Main Diff URL"
+        rest_format: string
+        write_endpoint: issue_put_fields
+
+    "5.2":
+      repository_field:
+        jira_field: customfield_12227
+        type: custom
+        description: "Pull 5.2 Branch"
+        rest_format: string
+        write_endpoint: issue_put_fields
+      diff_field:
+        jira_field: customfield_12228
+        type: custom
+        description: "Pull 5.2 Diff URL"
+        rest_format: string
+        write_endpoint: issue_put_fields
+
+    "5.1":
+      repository_field:
+        jira_field: customfield_11075
+        type: custom
+        description: "Pull 5.1 Branch"
+        rest_format: string
+        write_endpoint: issue_put_fields
+      diff_field:
+        jira_field: customfield_11076
+        type: custom
+        description: "Pull 5.1 Diff URL"
+        rest_format: string
+        write_endpoint: issue_put_fields
+
+    "5.0":
+      repository_field:
+        jira_field: customfield_10218
+        type: custom
+        description: "Pull 5.0 Branch"
+        rest_format: string
+        write_endpoint: issue_put_fields
+      diff_field:
+        jira_field: customfield_10232
+        type: custom
+        description: "Pull 5.0 Diff URL"
+        rest_format: string
+        write_endpoint: issue_put_fields
+
+    "4.5":
+      repository_field:
+        jira_field: customfield_10230
+        type: custom
+        description: "Pull 4.5 Branch"
+        rest_format: string
+        write_endpoint: issue_put_fields
+      diff_field:
+        jira_field: customfield_10246
+        type: custom
+        description: "Pull 4.5 Diff URL"
+        rest_format: string
+        write_endpoint: issue_put_fields
+
+workflow_rules:
+  issue_type_source_of_truth:
+    description: >
+      For existing Jira tickets already in the development workflow,
+      trust the Jira issue type as the source of truth.
+    applies_to:
+      - coding
+      - branching
+      - backport planning
+
+  issue_type_suggestion:
+    description: >
+      For new or incomplete ticket-authoring/refinement workflows, the agent may
+      suggest an issue type before Jira is finalised, but must not silently set it.
+    allowed_values:
+      - Bug
+      - Improvement
+      - New Feature
+    rubric:
+      Bug: "Existing expected behavior is broken or incorrect."
+      Improvement: "Existing workflow or capability is enhanced."
+      New Feature: "A new capability is introduced that does not exist today."
+
+branching_rules:
+  current_policy_snapshot:
+    description: >
+      This snapshot should be reviewed when Moodle support phases change.
+      Main represents the future unreleased version.
+    current_release_branch: "5.2"
+    future_release_branch: "5.3 / main"
+
+  by_issue_type:
+    Bug:
+      targets:
+        - "5.1"
+        - "5.2"
+        - "main"
+      rationale: "Bug fixes go to all bug-supported versions and upstream main."
+    Improvement:
+      targets:
+        - "main"
+      rationale: "Improvements go only to the future unreleased version."
+    New Feature:
+      targets:
+        - "main"
+      rationale: "New features go only to the future unreleased version."
+    Security:
+      targets:
+        - "4.5"
+        - "5.0"
+        - "5.1"
+        - "5.2"
+        - "main"
+      rationale: "Security fixes go to security-supported and bug-supported versions, plus upstream main."
+
+testing_instruction_rules:
+  Bug:
+    structure:
+      - "Setup"
+      - "Steps to reproduce the bug"
+      - "Apply patch / updated code"
+      - "Expected result after fix"
+    notes:
+      - "Must show how to expose the original bug before confirming the fix."
+  Improvement:
+    structure:
+      - "Setup"
+      - "Steps to exercise the improvement"
+      - "Expected result"
+    notes:
+      - "Focus on verifying the enhanced workflow or behavior."
+  New Feature:
+    structure:
+      - "Setup"
+      - "Steps to use the new feature"
+      - "Expected result"
+    notes:
+      - "Include prerequisites or configuration if needed."
+
+ticket_completion_expectations:
+  before_development:
+    - "Description and comments reviewed"
+    - "Ambiguities clarified with the user"
+    - "Clarification summary suitable for Jira write-back prepared"
+    - "Testing instructions prepared"
+    - "Branch targets determined from issue type"
+
+  before_peer_review:
+    - "Testing instructions present"
+    - "Relevant branch fields populated"
+    - "Diff/repo fields populated where available"
+    - "Code and ticket left in a complete state for reviewer efficiency"
+
+uncertain_or_todo:
+  - concept: "Additional branch fields for future versions"
+    status: "verify later"
+  - concept: "Any documentation or release-note-specific Jira fields"
+    status: "verify later"
+  - concept: "Any peer-review-specific custom fields"
+    status: "verify later"
+  - concept: "Whether fixVersions should be auto-managed by the agent"
+    status: "leave manual for now"

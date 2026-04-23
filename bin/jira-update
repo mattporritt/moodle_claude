@@ -1,0 +1,288 @@
+#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "$0")/lib.sh"
+mcc_ensure_repo_root
+
+JIRA_FIELD_MAP_FILE="${MCC_ROOT}/config/jira_field_map.yaml"
+JIRA_API_BASE="${JIRA_API_BASE:-rest/api/2}"
+
+ISSUE_KEY=""
+DO_VERIFY=false
+DO_EDITMETA=false
+DO_GET=false
+GET_FIELDS=""
+COMMENT_TEXT=""
+COMMENT_FILE=""
+declare -a FIELD_NAMES=()
+declare -a FIELD_VALUES=()
+
+function usage() {
+  cat <<USAGE
+Usage:
+  ./bin/jira-update <issue-key> [options]
+
+Common operations:
+  --field <name> --text <value>        Set a field from literal text
+  --field <name> --file <path>         Set a field from a file
+  --comment <text>                     Add a comment from literal text
+  --comment-file <path>                Add a comment from a file
+  --verify                             Read back the updated fields after writes
+
+Inspection:
+  --editmeta                           Print issue edit metadata and exit
+  --get                                Read the issue and exit
+  --fields <csv>                       Fields for --get (default: summary,description,comment)
+
+Field aliases:
+  summary
+  description
+  testing_instructions
+  testing-instructions
+  customfield_10214
+
+Examples:
+  ./bin/jira-update MDL-12345 --field description --file /tmp/description.md --verify
+  ./bin/jira-update MDL-12345 --field testing_instructions --file /tmp/testing.md --verify
+  ./bin/jira-update MDL-12345 --comment-file /tmp/comment.md --verify
+  ./bin/jira-update MDL-12345 --editmeta
+  ./bin/jira-update MDL-12345 --get --fields summary,description,customfield_10214,comment
+USAGE
+}
+
+function mcc_jira_require_env() {
+  [[ -n "${JIRA_BASE_URL:-}" ]] || mcc_fail "JIRA_BASE_URL is not set in ${MCC_ENV_FILE}."
+  [[ -n "${JIRA_USER_EMAIL:-}" ]] || mcc_fail "JIRA_USER_EMAIL is not set in ${MCC_ENV_FILE}."
+  [[ -n "${JIRA_API_TOKEN:-}" ]] || mcc_fail "JIRA_API_TOKEN is not set in ${MCC_ENV_FILE}."
+}
+
+function mcc_jira_read_file() {
+  local path="$1"
+  mcc_ensure_file "${path}"
+  cat "${path}"
+}
+
+function mcc_jira_normalize_field_name() {
+  local name="$1"
+  case "${name}" in
+    summary)
+      printf 'summary\n'
+      ;;
+    description)
+      printf 'description\n'
+      ;;
+    testing_instructions|testing-instructions|customfield_10214)
+      printf 'customfield_10214\n'
+      ;;
+    *)
+      printf '%s\n' "${name}"
+      ;;
+  esac
+}
+
+function mcc_jira_is_supported_string_field() {
+  local name="$1"
+  case "${name}" in
+    summary|description|customfield_10214)
+      return 0
+      ;;
+  esac
+
+  return 1
+}
+
+function mcc_jira_append_field() {
+  local name="$1"
+  local value="$2"
+  FIELD_NAMES+=("${name}")
+  FIELD_VALUES+=("${value}")
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    --verify)
+      DO_VERIFY=true
+      shift
+      ;;
+    --editmeta)
+      DO_EDITMETA=true
+      shift
+      ;;
+    --get)
+      DO_GET=true
+      shift
+      ;;
+    --fields)
+      [[ $# -ge 2 ]] || mcc_fail "Missing value for --fields"
+      GET_FIELDS="$2"
+      shift 2
+      ;;
+    --comment)
+      [[ $# -ge 2 ]] || mcc_fail "Missing value for --comment"
+      COMMENT_TEXT="$2"
+      shift 2
+      ;;
+    --comment-file)
+      [[ $# -ge 2 ]] || mcc_fail "Missing value for --comment-file"
+      COMMENT_FILE="$2"
+      shift 2
+      ;;
+    --field)
+      [[ $# -ge 4 ]] || mcc_fail "Use --field <name> with either --text <value> or --file <path>"
+      raw_field_name="$2"
+      field_name="$(mcc_jira_normalize_field_name "${raw_field_name}")"
+      if ! mcc_jira_is_supported_string_field "${field_name}"; then
+        mcc_fail "Unsupported field alias or serializer: ${raw_field_name}. Check ${JIRA_FIELD_MAP_FILE} and extend ./bin/jira-update deliberately."
+      fi
+      case "$3" in
+        --text)
+          mcc_jira_append_field "${field_name}" "$4"
+          shift 4
+          ;;
+        --file)
+          mcc_jira_append_field "${field_name}" "$(mcc_jira_read_file "$4")"
+          shift 4
+          ;;
+        *)
+          mcc_fail "After --field <name>, use either --text <value> or --file <path>."
+          ;;
+      esac
+      ;;
+    -*)
+      mcc_fail "Unknown option: $1"
+      ;;
+    *)
+      if [[ -z "${ISSUE_KEY}" ]]; then
+        ISSUE_KEY="$1"
+        shift
+      else
+        mcc_fail "Unexpected argument: $1"
+      fi
+      ;;
+  esac
+done
+
+[[ -n "${ISSUE_KEY}" ]] || {
+  usage
+  mcc_fail "Missing Jira issue key."
+}
+
+mcc_jira_require_env
+
+if [[ -n "${COMMENT_TEXT}" && -n "${COMMENT_FILE}" ]]; then
+  mcc_fail "Use either --comment or --comment-file, not both."
+fi
+
+if [[ -n "${COMMENT_FILE}" ]]; then
+  COMMENT_TEXT="$(mcc_jira_read_file "${COMMENT_FILE}")"
+fi
+
+if [[ -z "${GET_FIELDS}" ]]; then
+  GET_FIELDS="summary,description,comment"
+fi
+
+TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/jira-update.XXXXXX")"
+trap 'rm -rf "${TMP_DIR}"' EXIT
+
+export ISSUE_KEY JIRA_API_BASE JIRA_BASE_URL JIRA_USER_EMAIL JIRA_API_TOKEN TMP_DIR GET_FIELDS COMMENT_TEXT
+
+if [[ "${DO_EDITMETA}" == "true" ]]; then
+  curl --fail-with-body -sS \
+    -u "${JIRA_USER_EMAIL}:${JIRA_API_TOKEN}" \
+    -H 'Accept: application/json' \
+    "${JIRA_BASE_URL}/${JIRA_API_BASE}/issue/${ISSUE_KEY}/editmeta"
+  exit 0
+fi
+
+if [[ "${DO_GET}" == "true" ]]; then
+  curl --fail-with-body -sS \
+    -u "${JIRA_USER_EMAIL}:${JIRA_API_TOKEN}" \
+    -H 'Accept: application/json' \
+    "${JIRA_BASE_URL}/${JIRA_API_BASE}/issue/${ISSUE_KEY}?fields=${GET_FIELDS}"
+  exit 0
+fi
+
+if [[ ${#FIELD_NAMES[@]} -eq 0 && -z "${COMMENT_TEXT}" ]]; then
+  mcc_fail "Nothing to update. Use --field ..., --comment ..., --comment-file, --get, or --editmeta."
+fi
+
+if [[ ${#FIELD_NAMES[@]} -gt 0 ]]; then
+  : > "${TMP_DIR}/field-names.txt"
+  : > "${TMP_DIR}/field-values.txt"
+  for i in "${!FIELD_NAMES[@]}"; do
+    printf '%s\0' "${FIELD_NAMES[$i]}" >> "${TMP_DIR}/field-names.txt"
+    printf '%s\0' "${FIELD_VALUES[$i]}" >> "${TMP_DIR}/field-values.txt"
+  done
+
+  python3 - <<'PY' > "${TMP_DIR}/issue-update.json"
+import json
+import os
+
+with open(os.path.join(os.environ["TMP_DIR"], "field-names.txt"), "rb") as fh:
+    names = [item.decode() for item in fh.read().split(b"\0") if item]
+with open(os.path.join(os.environ["TMP_DIR"], "field-values.txt"), "rb") as fh:
+    values = [item.decode() for item in fh.read().split(b"\0") if item]
+
+if len(names) != len(values):
+    raise SystemExit("Field/value count mismatch while building Jira payload.")
+
+payload = {"fields": dict(zip(names, values))}
+print(json.dumps(payload))
+PY
+
+  curl --fail-with-body -sS \
+    -u "${JIRA_USER_EMAIL}:${JIRA_API_TOKEN}" \
+    -H 'Accept: application/json' \
+    -H 'Content-Type: application/json' \
+    -X PUT \
+    --data @"${TMP_DIR}/issue-update.json" \
+    "${JIRA_BASE_URL}/${JIRA_API_BASE}/issue/${ISSUE_KEY}" \
+    >/dev/null
+
+  printf 'Updated issue fields on %s:' "${ISSUE_KEY}"
+  printf ' %s' "${FIELD_NAMES[@]}"
+  printf '\n'
+fi
+
+if [[ -n "${COMMENT_TEXT}" ]]; then
+  python3 - <<'PY' > "${TMP_DIR}/comment-update.json"
+import json
+import os
+
+print(json.dumps({"body": os.environ["COMMENT_TEXT"]}))
+PY
+
+  curl --fail-with-body -sS \
+    -u "${JIRA_USER_EMAIL}:${JIRA_API_TOKEN}" \
+    -H 'Accept: application/json' \
+    -H 'Content-Type: application/json' \
+    -X POST \
+    --data @"${TMP_DIR}/comment-update.json" \
+    "${JIRA_BASE_URL}/${JIRA_API_BASE}/issue/${ISSUE_KEY}/comment" \
+    >/dev/null
+
+  printf 'Added comment on %s\n' "${ISSUE_KEY}"
+fi
+
+if [[ "${DO_VERIFY}" == "true" ]]; then
+  verify_fields=()
+  if [[ ${#FIELD_NAMES[@]} -gt 0 ]]; then
+    verify_fields+=("${FIELD_NAMES[@]}")
+  fi
+  if [[ -n "${COMMENT_TEXT}" ]]; then
+    verify_fields+=("comment")
+  fi
+  if [[ ${#verify_fields[@]} -eq 0 ]]; then
+    verify_fields=("summary" "description" "comment")
+  fi
+
+  verify_csv="$(printf '%s\n' "${verify_fields[@]}" | awk '!seen[$0]++' | paste -sd, -)"
+  echo "Verification fields: ${verify_csv}"
+  curl --fail-with-body -sS \
+    -u "${JIRA_USER_EMAIL}:${JIRA_API_TOKEN}" \
+    -H 'Accept: application/json' \
+    "${JIRA_BASE_URL}/${JIRA_API_BASE}/issue/${ISSUE_KEY}?fields=${verify_csv}"
+fi

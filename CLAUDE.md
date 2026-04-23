@@ -12,6 +12,9 @@
 - JavaScript build commands should use the host-side `./bin/grunt` helper from the `claude/` repo root.
 - `./bin/upgrade` is the thin wrapper for Moodle CLI upgrade in the web container.
 - Chrome MCP, Firefox MCP, and Atlassian MCP are optional Claude Code client integrations that complement this harness.
+- Jira field IDs and Jira workflow metadata for this repo live in `config/jira_field_map.yaml`.
+- Moodle branch mapping and Jira-driven branch naming guidance live in `docs/moodle-branching.md`.
+- Jira write-back auth and fallback guidance live in `docs/jira-writeback.md`.
 
 ## Non-negotiables
 
@@ -55,16 +58,25 @@
    - `./bin/preflight --changed-lines` when editing large legacy files and you want changed-line-focused PHPCS
    - `./bin/grunt amd --files=<amd/src path>` or `./bin/grunt amd --root=<component>` for targeted Moodle AMD rebuilds when JS changed
    - `./bin/phpunit <targeted tests>`
-   - `./bin/behat <targeted tags>` for behaviour/UI changes
+   - `./bin/behat <targeted tags or feature paths>` for behaviour/UI changes
    - `./bin/upgrade` when plugin discovery or upgrade-sensitive metadata changed
    - `docker exec moodlemaster-webserver-1 php /var/www/html/admin/cli/scheduled_task.php --execute='\plugin\task\classname'` to smoke-test a scheduled task — confirms the code path runs without fatal errors and `mtrace()` output is correct; this is a runtime check only, not a substitute for PHPUnit tests that assert task logic
    - `./bin/smoke` when validating a fresh harness setup
    - `./bin/feature-smoke` when validating the full install/init/test workflow
    - `docker exec moodlemaster-webserver-1 php /var/www/html/admin/cli/purge_caches.php` after adding lang strings or template changes to an already-installed plugin without a version bump — `./bin/upgrade` alone does not clear the string cache in this case
-7. Fix failures before proposing commit.
-8. Prepare commit suggestions:
+7. For non-trivial tasks, perform a self peer-review pass (see Self peer review section):
+   - exactly one review pass only
+   - use the compact `Y / N / -` checklist format
+   - classify findings as `MUST FIX` or `SHOULD FIX`
+   - treat this as a correction step, not a redesign step
+   - do not recurse or run a second peer review after fixes
+8. Apply all `MUST FIX` issues and any practical `SHOULD FIX` issues without expanding scope.
+9. Re-run only the validation steps affected by those fixes.
+10. Prepare final output and commit suggestions:
    - one logical change per commit
    - tests included in the same commit that changes behaviour
+   - choose the correct Moodle base branch from `docs/moodle-branching.md`
+   - never commit directly to `main` or `MOODLE_*_STABLE`; use issue-specific development branches instead
    - branch and commit message aligned to Moodle issue style: `MDL-12345 component_name: concise imperative summary`
 
 ## Orchestrator-first policy
@@ -117,6 +129,7 @@
 - Use Chrome MCP for Chromium-based UI checks, console/network inspection, screenshots, and performance traces.
 - Use Firefox MCP for second-browser reproduction and Gecko-specific behaviour.
 - Use Atlassian MCP for Jira and Confluence search, issue/page retrieval, and small coordination tasks.
+- Use `docs/jira-writeback.md` as the source of truth for Jira read-vs-write behavior and Jira write-back fallback order.
 - Both Chrome and Firefox MCP run headless — the browser process is hidden and cannot be accidentally closed by the user. Output files (snapshots, logs) go to `~/.claude/playwright-output/`.
 - When a task depends on an MCP server, start with a lightweight connectivity check:
   - Chrome or Firefox: open a blank or `data:` page and confirm a snapshot loads.
@@ -124,6 +137,21 @@
 - If a Chrome or Firefox MCP call fails with "Target page, context or browser has been closed" or similar, the MCP server process is still alive but has lost its browser context. This requires a Claude Code session restart to recover — it cannot be fixed mid-session by retrying. Note the gap in the task summary and continue with other validation methods (CLI, `curl`).
 - Keep MCP use task-focused. Do not browse aimlessly when a targeted read or reproduction is enough.
 - Do not hardcode tenant-specific Atlassian IDs, tokens, or machine-specific MCP details in committed files.
+- For Jira interaction in this repo, treat `config/jira_field_map.yaml` as the source of truth for field IDs and issue-type-driven workflow metadata.
+- Treat Jira reads and Jira writes as separate checks. Public readability or successful MCP reads do not prove authenticated write access.
+- Prefer Atlassian Rovo MCP first for Jira reads and writes.
+- If Jira write-back via MCP fails because authentication or permissions are insufficient, use Jira REST API fallback only when `JIRA_BASE_URL`, `JIRA_USER_EMAIL`, and `JIRA_API_TOKEN` are configured locally in `.claude.env`.
+- If both MCP and API fallback are unavailable or fail, browser-based Jira interaction may be used as the final fallback when the browser session is authenticated for editing.
+- When using Jira REST for writes:
+  - use `./bin/jira-update` for common issue-field and comment updates before hand-rolling `curl`
+  - default to Jira REST v2 issue writes for the common string and textarea fields documented in `config/jira_field_map.yaml`
+  - check `docs/jira-writeback.md` and the field map for the expected payload format before writing unfamiliar fields
+  - if the field format is still uncertain, inspect `editmeta` once before the first write rather than guessing repeatedly
+  - verify successful writes with a follow-up read of the updated fields
+- When Jira updates are part of the task, report the read path used, whether MCP write was attempted, whether MCP write failed due to authentication or permissions, whether API fallback was attempted, whether browser fallback was used, and the exact update types applied.
+- In ticket authoring/refinement flows, issue type may be suggested for confirmation when it is not yet settled.
+- In coding workflows against an existing Jira issue, trust the Jira issue type as the source of truth.
+- In Jira-driven coding work, use `docs/moodle-branching.md` to map target versions to Moodle base branches and form developer-owned issue branches such as `MOODLE_502_STABLE_MDL-12345`.
 
 ## Browser validation
 
@@ -138,6 +166,16 @@
   - navigate to the relevant page, for example `/admin/settings.php?section=<settingspageid>`
   - confirm the expected setting or UI control renders correctly
 - Keep this lightweight. Use browser MCP to validate the real page, not to build a new browser framework inside this repo.
+
+## Behat path guidance
+
+- `./bin/behat` accepts either:
+  - option-style arguments such as `--tags=@mytag`
+  - Moodle-checkout-relative feature paths such as `public/local/example/tests/behat/example.feature`
+  - short feature paths relative to `public/`, such as `local/example/tests/behat/example.feature`, when this checkout uses the `public/` layout
+  - absolute host paths under `MOODLE_DIR`, which the wrapper normalizes to container-visible paths
+- For targeted feature execution, prefer Moodle-checkout-relative feature paths from the repo root.
+- The wrapper now normalizes feature paths before handing them to Moodle's Behat runner so feature execution does not depend on the container working directory.
 
 ## Working with a large codebase
 
@@ -165,7 +203,10 @@ After implementation and initial validation on non-trivial tasks, perform a sing
 ## Git expectations
 
 - One logical change per commit.
-- Branch naming should align with Moodle workflow and issue key when known.
+- Use `docs/moodle-branching.md` as the canonical source for Moodle base branches and issue-branch naming.
+- Never commit directly to Moodle core `main` or `MOODLE_*_STABLE` branches.
+- Create per-issue development branches from the correct base branch, for example `MOODLE_502_STABLE_MDL-12345`.
+- Push development branches to the developer's own fork or repository, not the main Moodle LMS repository.
 - Commit messages should use Moodle issue style: `MDL-12345 component_name: concise imperative summary`
 
 ## Practical rules for this repo

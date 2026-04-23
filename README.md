@@ -166,8 +166,38 @@ Reusable task prompts live in `prompts/`:
 - [create-scheduled-task.md](prompts/create-scheduled-task.md)
 - [create-javascript-change.md](prompts/create-javascript-change.md)
 - [create-renderer-mustache-ui.md](prompts/create-renderer-mustache-ui.md)
+- [jira-driven-moodle-development-workflow-v1.md](prompts/jira-driven-moodle-development-workflow-v1.md)
 
 These are Moodle-specific, orchestrator-aware, and aligned with the current `./bin/*` harness so developers can start Claude Code sessions from a stronger baseline.
+
+## Jira Workflows
+
+Use the Jira-related prompts when the work starts from a Jira ticket or when you need to prepare a Jira ticket before development starts.
+
+There are two distinct Jira entry paths:
+
+### Create Or Refine A Jira Ticket
+
+Use [user-ticket-template.md](prompts/user-ticket-template.md) to draft the ticket, then give that draft to the agent with [agent-create-ticket.md](prompts/agent-create-ticket.md). The agent clarifies the problem, suggests an issue type for confirmation when not yet settled, and writes back to Jira via Atlassian Rovo MCP first, with REST API and browser fallback.
+
+### Work From An Existing Jira Ticket
+
+Use [jira-driven-moodle-development-workflow-v1.md](prompts/jira-driven-moodle-development-workflow-v1.md) with the Jira issue key, for example:
+
+```md
+Use prompts/jira-driven-moodle-development-workflow-v1.md.
+
+Jira issue key: MDL-88194
+Additional local constraints: none
+```
+
+The agent reads the Jira issue, clarifies ambiguity, determines branch targets from [docs/moodle-branching.md](docs/moodle-branching.md), implements the change, and prepares Jira-ready updates.
+
+### Jira Field Mapping And Reference Files
+
+- [config/jira_field_map.yaml](config/jira_field_map.yaml) — source of truth for Jira field IDs and workflow metadata
+- [docs/moodle-branching.md](docs/moodle-branching.md) — Moodle version-to-branch mapping and issue-branch naming
+- [docs/jira-writeback.md](docs/jira-writeback.md) — Jira read-vs-write access expectations and write-back fallback order
 
 ## Claude Code hooks
 
