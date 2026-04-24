@@ -166,15 +166,23 @@ Reusable task prompts live in `prompts/`:
 - [create-scheduled-task.md](prompts/create-scheduled-task.md)
 - [create-javascript-change.md](prompts/create-javascript-change.md)
 - [create-renderer-mustache-ui.md](prompts/create-renderer-mustache-ui.md)
+- [user-ticket-template.md](prompts/user-ticket-template.md)
+- [agent-create-ticket.md](prompts/agent-create-ticket.md)
+- [user-prd-template.md](prompts/user-prd-template.md)
+- [agent-create-prd.md](prompts/agent-create-prd.md)
+- [agent-decompose-prd-to-jira.md](prompts/agent-decompose-prd-to-jira.md)
 - [jira-driven-moodle-development-workflow-v1.md](prompts/jira-driven-moodle-development-workflow-v1.md)
 
-These are Moodle-specific, orchestrator-aware, and aligned with the current `./bin/*` harness so developers can start Claude Code sessions from a stronger baseline.
+These prompts cover Moodle development work plus adjacent Jira and PRD authoring workflows, and they are aligned with the current `./bin/*` harness so developers can start Claude Code sessions from a stronger baseline.
+
+Use the PRD workflow when the work is still at the product-definition stage and you need a complete Product Requirements Document before Jira epic or ticket creation.
+Use the PRD-to-Jira decomposition workflow when the PRD is complete and you want Jira-ready Epic and ticket content before development starts.
+Use the Jira-driven workflow prompt when the work starts from a Jira issue and you want Claude to treat the ticket as the source of truth, read comments before coding, prepare testing instructions, plan branching, and prepare Jira-ready updates alongside the implementation work.
+Use the ticket-authoring prompt when the main goal is to refine or create a Jira ticket before development starts, including suggesting an issue type for confirmation when the type is not settled yet.
 
 ## Jira Workflows
 
-Use the Jira-related prompts when the work starts from a Jira ticket or when you need to prepare a Jira ticket before development starts.
-
-There are two distinct Jira entry paths:
+Use the Jira-related prompts when the work starts before implementation and needs to move from product definition into Jira-ready planning, then into development.
 
 ### Quick Start
 

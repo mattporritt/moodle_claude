@@ -57,6 +57,7 @@
    - `./bin/preflight` for the normal targeted PHPCS pass
    - `./bin/preflight --changed-lines` when editing large legacy files and you want changed-line-focused PHPCS
    - `./bin/grunt amd --files=<amd/src path>` or `./bin/grunt amd --root=<component>` for targeted Moodle AMD rebuilds when JS changed
+   - `./bin/grunt css --root=<theme/component>` for SCSS changes that require committed precompiled CSS output, and include the generated CSS files in the change
    - `./bin/phpunit <targeted tests>`
    - `./bin/behat <targeted tags or feature paths>` for behaviour/UI changes
    - `./bin/upgrade` when plugin discovery or upgrade-sensitive metadata changed
@@ -168,6 +169,7 @@
 - For decorative UI additions, perform an explicit accessibility sanity check to confirm they do not alter the accessible name or announcement path for the underlying control.
 - For CSS changes involving Bootstrap-managed controls such as `input-group`, toggles, buttons, or wrappers around focused fields, explicitly check focus-state stacking and wrapper interactions rather than assuming the default state is sufficient.
 - If browser behaviour looks wrong after a frontend change, consider stale assets or focus/stacking CSS interactions early, especially in Boost, before assuming the template or PHP logic is incorrect.
+- For Jira-driven UI changes, take a validation screenshot after the final manual/browser verification when the screenshot materially demonstrates the implemented result, and attach it to the Jira ticket.
 - After implementing admin-facing Moodle features:
   - run `./bin/upgrade` if the feature depends on plugin discovery or upgrade-sensitive metadata
   - run `docker exec moodlemaster-webserver-1 php /var/www/html/admin/cli/purge_caches.php` if CSS, SCSS, templates, or lang strings changed
@@ -198,6 +200,7 @@
   - treat `amd/build/` as generated output that must be rebuilt when committed assets need refreshing
   - prefer the narrowest practical Grunt run, usually `./bin/grunt amd --files=<sourcefile>` or `./bin/grunt amd --root=<component>`
   - do not claim success on JS changes without saying what Grunt command ran, or why no Grunt run was needed
+- For theme SCSS changes that feed committed precompiled CSS, run the narrowest applicable CSS Grunt build and commit the generated stylesheet outputs it updates.
 - When editing Mustache templates, prefer the clearest readable markup for the local template rather than blindly copying inherited formatting patterns from related templates.
 - Do not cargo-cult Mustache whitespace-control comment fragments such as `{{! ... !}}` when plain multiline HTML attributes are clearer and do not change rendering.
 - Use `.claude.identity` for new file author metadata when present. The file is sourced as shell, so variables must use shell syntax (`AUTHOR_NAME="..."`, `AUTHOR_EMAIL="..."`). Use `.claude.identity.example` as the template.

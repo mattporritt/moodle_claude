@@ -63,9 +63,37 @@ These are the known-good payload shapes for the common Moodle Jira fields used f
 | Summary | `summary` | `PUT /rest/api/2/issue/<key>` | string | Send inside `fields.summary`. |
 | Description | `description` | `PUT /rest/api/2/issue/<key>` | string | Known-good as a plain string in this workspace. |
 | Testing Instructions | `customfield_10214` | `PUT /rest/api/2/issue/<key>` | string | Jira textarea field. |
+| Pull from Repository | `customfield_10244` | `PUT /rest/api/2/issue/<key>` | string | Use the developer fork URL, for example `https://github.com/mattporritt/moodle`. |
+| Pull Main Branch | `customfield_10221` | `PUT /rest/api/2/issue/<key>` | string | Use the pushed issue branch name, for example `main_MDL-88194`. |
+| Pull Main Diff URL | `customfield_10247` | `PUT /rest/api/2/issue/<key>` | string | Use upstream Moodle compare format with branch-point hash and fork owner branch. |
 | Comment | `comment` | `POST /rest/api/2/issue/<key>/comment` | string body | Send as `{"body":"..."}`. |
 
 `./bin/jira-update` currently optimises for the string and textarea cases above. For more complex field types, inspect `editmeta` first and extend the serializer deliberately.
+
+## Branch field conventions
+
+When writing Moodle branch metadata to Jira:
+
+1. Set the relevant `Pull * Branch` field to the issue branch name.
+2. Set `Pull from Repository` to the developer fork/repository URL hosting that branch.
+3. Set the relevant `Pull * Diff URL` to:
+
+   `https://github.com/moodle/moodle/compare/<branch-point-hash>...<fork-owner>:<branch-name>`
+
+4. Derive `<branch-point-hash>` from the git branch point against the target base branch at branch-creation time.
+5. Do not use a fork-local compare URL such as `https://github.com/<fork>/moodle/compare/main...branch` for Jira branch fields.
+
+For final implementation comments:
+
+- Keep them concise.
+- Focus on what changed, how to test, and any meaningful limitations.
+- Do not repeat requirement detail that is already clear in the description, acceptance criteria, or testing-instructions field.
+
+For browser-facing UI changes:
+
+- Capture a validation screenshot after final manual/browser verification when it materially shows the implemented result.
+- Attach that screenshot to the Jira ticket.
+- Mention the screenshot attachment in the final implementation comment when it was added.
 
 ## Known failure modes
 

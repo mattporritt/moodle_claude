@@ -234,9 +234,11 @@ Then proceed to:
 - ensure minimal, correct changes
 
 If the implementation changes CSS, SCSS, templates, or other browser-cached presentation assets, you MUST purge Moodle caches before browser validation so stale assets do not invalidate the result.
+If the implementation changes SCSS for a theme or other source that feeds committed precompiled CSS, you MUST run the relevant CSS build, review the generated stylesheet outputs, and include those generated files in the code change.
 If the task changes rendered UI, you MUST validate the specific changed control states, not just page-load success. Check the relevant states for the ticket, such as default, focused, hover, error, and JS-enhanced states where applicable.
 If the change adds decorative UI elements, you MUST confirm they do not alter the accessible name or announcement path of the underlying controls.
 If the UI change touches Bootstrap-style grouped controls, wrappers, toggles, or focused inputs, you MUST explicitly check focus-state stacking and wrapper interactions.
+If the final rendered UI state is meaningfully visible, you MUST capture a validation screenshot after final manual/browser verification and attach it to the Jira ticket.
 
 ---
 
@@ -248,6 +250,7 @@ Before marking ready for peer review, you MUST ensure:
 - testing instructions present
 - summary present
 - correct labels suggested (if applicable)
+- validation screenshot attached for browser-facing UI changes when it materially demonstrates the result
 - the Jira update path used is recorded clearly
 
 ## Code is complete:
@@ -269,7 +272,6 @@ Before marking ready for peer review, you MUST ensure:
 You MUST prepare a final structured update including:
 
 - What was implemented
-- Why
 - Branches created
 - How to test
 - Any limitations or follow-ups
@@ -281,6 +283,14 @@ You MUST prepare a final structured update including:
 - Exact update types performed (for example comment, description, testing instructions, field update)
 
 This MUST be suitable for a Jira comment.
+Keep this implementation comment concise and avoid repeating ticket content that already lives clearly in the description, acceptance criteria, or testing-instructions field.
+Mention the validation screenshot attachment when one was added.
+
+When branch fields are part of the workflow, you MUST:
+- populate the relevant `Pull * Branch` field with the pushed issue branch name
+- populate `Pull from Repository` with the developer fork/repository URL that hosts the branch
+- populate the relevant `Pull * Diff URL` using the Moodle upstream compare format `https://github.com/moodle/moodle/compare/<branch-point-hash>...<fork-owner>:<branch-name>`
+- derive `<branch-point-hash>` from the git commit at the branch point from the target base branch, not from the current HEAD after later mainline movement
 
 ---
 

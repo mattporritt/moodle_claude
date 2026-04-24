@@ -40,6 +40,19 @@ Run the `./bin/*` commands from that `claude/` repo root, not from the parent Mo
   - use after the user-facing template when the goal is clarification, structured ticket writing, and Jira-ready content that should prefer Atlassian Rovo MCP first for write-back
   - can suggest `Bug`, `Improvement`, or `New Feature` before ticket finalisation, but should ask for confirmation before writing that type back
 
+## PRD Authoring
+
+- `user-prd-template.md`
+  - the user-facing starting template for drafting a Product Requirements Document in Confluence-compatible markdown
+  - use this when the work is still at the product-definition stage and you want to capture the problem, value, scope, non-goals, dependencies, and success metrics before Jira epic or ticket creation
+- `agent-create-prd.md`
+  - the agent-side prompt for turning a rough PRD draft into a complete PRD through one or two rounds of targeted clarification
+  - use after the user-facing template when the goal is a concrete, high-quality PRD that is ready to serve as the basis for a later Jira epic and ticket breakdown
+- `agent-decompose-prd-to-jira.md`
+  - the agent-side prompt for decomposing a completed PRD into a small set of Jira-ready issues
+  - use after the PRD is complete when the next step is planning an Epic and its supporting development tickets rather than writing code
+  - applies Jira issue-type rules, testing-instruction rules, and current branch-target policy from `config/jira_field_map.yaml`
+
 ## Development From Existing Jira Issue
 
 - `jira-driven-moodle-development-workflow-v1.md`
@@ -53,6 +66,10 @@ Run the `./bin/*` commands from that `claude/` repo root, not from the parent Mo
 ## Shared expectations
 
 - Read `CLAUDE.md` first and follow it strictly.
+- Use the PRD workflow when the work needs product definition before Jira ticketing or development.
+- Use the PRD-to-Jira decomposition workflow when the PRD is complete and the next step is generating a coherent Jira issue set.
+- Use the Jira ticket workflow when the goal is to create or refine a ticket rather than a full PRD.
+- Use the Jira-driven development workflow when an existing Jira issue is already the source of truth for implementation.
 - For new Moodle source files, `.claude.identity` is required unless the user explicitly approves a fallback.
 - For Moodle AMD work, `amd/src/` is the source of truth and `amd/build/` is generated output.
 - For new files, use whole-file PHPCS.

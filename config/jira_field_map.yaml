@@ -82,6 +82,15 @@ fields:
         - "Jira textarea field."
 
   branches:
+    repository:
+      jira_field: customfield_10244
+      type: custom
+      description: "Pull from Repository"
+      rest_format: string
+      write_endpoint: issue_put_fields
+      notes:
+        - "Use the developer fork/repository URL that hosts the pushed branch."
+
     main:
       repository_field:
         jira_field: customfield_10221
@@ -89,12 +98,16 @@ fields:
         description: "Pull Main Branch"
         rest_format: string
         write_endpoint: issue_put_fields
+        notes:
+          - "Use the issue branch name only, for example `main_MDL-88194`."
       diff_field:
         jira_field: customfield_10247
         type: custom
         description: "Pull Main Diff URL"
         rest_format: string
         write_endpoint: issue_put_fields
+        notes:
+          - "Use upstream Moodle compare format `https://github.com/moodle/moodle/compare/<branch-point-hash>...<fork-owner>:<branch-name>`."
 
     "5.2":
       repository_field:
@@ -103,12 +116,16 @@ fields:
         description: "Pull 5.2 Branch"
         rest_format: string
         write_endpoint: issue_put_fields
+        notes:
+          - "Use the issue branch name only."
       diff_field:
         jira_field: customfield_12228
         type: custom
         description: "Pull 5.2 Diff URL"
         rest_format: string
         write_endpoint: issue_put_fields
+        notes:
+          - "Use upstream Moodle compare format with the base-branch branch-point hash."
 
     "5.1":
       repository_field:
@@ -117,12 +134,16 @@ fields:
         description: "Pull 5.1 Branch"
         rest_format: string
         write_endpoint: issue_put_fields
+        notes:
+          - "Use the issue branch name only."
       diff_field:
         jira_field: customfield_11076
         type: custom
         description: "Pull 5.1 Diff URL"
         rest_format: string
         write_endpoint: issue_put_fields
+        notes:
+          - "Use upstream Moodle compare format with the base-branch branch-point hash."
 
     "5.0":
       repository_field:
@@ -131,12 +152,16 @@ fields:
         description: "Pull 5.0 Branch"
         rest_format: string
         write_endpoint: issue_put_fields
+        notes:
+          - "Use the issue branch name only."
       diff_field:
         jira_field: customfield_10232
         type: custom
         description: "Pull 5.0 Diff URL"
         rest_format: string
         write_endpoint: issue_put_fields
+        notes:
+          - "Use upstream Moodle compare format with the base-branch branch-point hash."
 
     "4.5":
       repository_field:
@@ -145,12 +170,16 @@ fields:
         description: "Pull 4.5 Branch"
         rest_format: string
         write_endpoint: issue_put_fields
+        notes:
+          - "Use the issue branch name only."
       diff_field:
         jira_field: customfield_10246
         type: custom
         description: "Pull 4.5 Diff URL"
         rest_format: string
         write_endpoint: issue_put_fields
+        notes:
+          - "Use upstream Moodle compare format with the base-branch branch-point hash."
 
 workflow_rules:
   issue_type_source_of_truth:
@@ -241,8 +270,9 @@ ticket_completion_expectations:
 
   before_peer_review:
     - "Testing instructions present"
+    - "Pull from Repository populated"
     - "Relevant branch fields populated"
-    - "Diff/repo fields populated where available"
+    - "Relevant diff URL fields populated in upstream Moodle compare format"
     - "Code and ticket left in a complete state for reviewer efficiency"
 
 uncertain_or_todo:
