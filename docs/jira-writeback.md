@@ -12,11 +12,41 @@ Treat Jira read access and Jira write access as separate checks.
 
 ## Preferred fallback order
 
-1. Atlassian Rovo MCP first
+1. Atlassian Rovo MCP first (reads always; writes only for restricted/login-required MDL tickets)
 2. Jira REST API fallback using local credentials from `.claude.env`
 3. Browser-based Jira interaction as the final fallback
 
 Browser interaction is a last resort, not the default.
+
+## Rovo MCP write limitation for publicly readable MDL tickets
+
+Rovo MCP cannot write to MDL tickets that are publicly readable without login. The MCP server
+refuses writes to issues it accessed anonymously, returning:
+
+> `This issue is anonymous and can't be updated using Rovo MCP Server.`
+
+This is a structural Rovo MCP server-side limitation tied to anonymous read access, not to the
+MDL project as a whole. It cannot be fixed by re-authenticating, switching accounts, or retrying.
+
+**Ticket type determines which write path to use:**
+
+| Ticket type | MCP read | MCP write | REST write |
+|---|---|---|---|
+| Standard MDL ticket (publicly readable) | ✓ works | ✗ fails (anonymous) | ✓ use `./bin/jira-update` |
+| Restricted MDL ticket (security issues, login required) | ✓ works | ✓ works | ✓ also works |
+
+For standard publicly readable MDL tickets, skip Rovo MCP for writes and go directly to
+`./bin/jira-update`. For restricted/security tickets, Rovo MCP writes work normally.
+
+### Verifying OAuth session health before writes
+
+Before attempting a Rovo MCP write on any restricted ticket, verify the session is active:
+
+1. Call `atlassianUserInfo` — confirms the OAuth token is active.
+2. Call `getAccessibleAtlassianResources` — confirms the site is accessible.
+
+If either call fails, switch to REST fallback. If both succeed but a write still fails with the
+anonymous error, the ticket is publicly readable — use `./bin/jira-update` instead.
 
 ## Local credential contract
 
@@ -97,7 +127,9 @@ For browser-facing UI changes:
 
 ## Known failure modes
 
-- Rovo MCP can read publicly visible Moodle issues but may refuse writes when the issue is treated as anonymous by the server.
+- Rovo MCP reads standard publicly readable MDL tickets anonymously. A successful read does not mean the OAuth session is active or write-capable.
+- Rovo MCP cannot write to publicly readable MDL tickets. The MCP refuses with `"This issue is anonymous and can't be updated using Rovo MCP Server."` Use `./bin/jira-update` for these.
+- Rovo MCP can write to restricted MDL tickets (e.g. security issues) that require login — these use authenticated OAuth and work normally.
 - Jira field formats are not uniform. Do not assume every editable field accepts a plain string.
 - Python HTTPS calls may fail locally with certificate-chain issues that do not affect `curl`. Prefer `curl` for this repo's Jira REST helper path unless there is a clear reason not to.
 - A successful read does not prove the chosen write endpoint or payload shape is valid.

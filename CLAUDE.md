@@ -144,7 +144,10 @@
 - Do not hardcode tenant-specific Atlassian IDs, tokens, or machine-specific MCP details in committed files.
 - For Jira interaction in this repo, treat `config/jira_field_map.yaml` as the source of truth for field IDs and issue-type-driven workflow metadata.
 - Treat Jira reads and Jira writes as separate checks. Public readability or successful MCP reads do not prove authenticated write access.
-- Prefer Atlassian Rovo MCP first for Jira reads and writes.
+- Standard MDL tickets are publicly readable without login. Rovo MCP reads these anonymously — a successful read does not mean the OAuth session is write-capable.
+- Rovo MCP cannot write to publicly readable MDL tickets. The MCP returns `"This issue is anonymous and can't be updated using Rovo MCP Server."` This is structural — use `./bin/jira-update` (REST) for these writes.
+- Rovo MCP can write to restricted MDL tickets (e.g. security issues) that require login to read — these use authenticated OAuth and work normally.
+- Prefer Rovo MCP for reads on all MDL tickets. For writes, check if the ticket is publicly readable: if yes, use REST; if restricted/security, use MCP.
 - If Jira write-back via MCP fails because authentication or permissions are insufficient, use Jira REST API fallback only when `JIRA_BASE_URL`, `JIRA_USER_EMAIL`, and `JIRA_API_TOKEN` are configured locally in `.claude.env`.
 - If both MCP and API fallback are unavailable or fail, browser-based Jira interaction may be used as the final fallback when the browser session is authenticated for editing.
 - When using Jira REST for writes:
