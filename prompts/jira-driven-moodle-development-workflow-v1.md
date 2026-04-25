@@ -123,6 +123,12 @@ This summary MUST be suitable for:
 
 Do NOT overwrite existing content unless explicitly instructed.
 
+When preparing content for Jira write-back through the current REST string path:
+- prefer conservative Jira-safe formatting
+- use plain paragraphs, flat lists, and explicit section labels
+- separate sections with blank lines
+- avoid markdown heading syntax, deep list nesting, HTML, and tables unless the renderer has been verified
+
 Write-back path expectations:
 - prefer Atlassian Rovo MCP first
 - if MCP write fails because authentication or permissions are insufficient, use Jira REST API fallback only when `JIRA_BASE_URL`, `JIRA_USER_EMAIL`, and `JIRA_API_TOKEN` are configured locally

@@ -48,11 +48,21 @@
 1. Classify the task:
    - trivial local edit in already-identified files, or
    - non-trivial Moodle task requiring orchestrator-first discovery
-2. For non-trivial Moodle tasks, use orchestrator first for discovery and pattern-finding before coding, normally through its `query` workflow.
-3. If orchestrator availability or health has not been manually verified, explicitly report that and block orchestrator-dependent work until manual verification happens.
-4. For trivial local edits, proceed directly with the smallest viable local change.
-5. After discovery, implement the smallest viable change directly in the local Moodle checkout.
-6. Run quality gates:
+2. Before coding in the Moodle checkout, inspect the current git branch and working tree in `MOODLE_DIR`.
+3. For Jira-driven work, if the checkout is not already on the correct per-issue development branch, correct that first:
+   - map the Jira issue to the correct base branch using `docs/moodle-branching.md`
+   - ensure work does not continue on an unrelated developer branch
+   - create or switch to the correct issue branch before implementation
+   - if existing local changes make branch correction unsafe, pause and surface that explicitly
+4. For non-trivial Moodle tasks, use orchestrator first for discovery and pattern-finding before coding, normally through its `query` workflow.
+5. If orchestrator availability or health has not been manually verified, explicitly report that and block orchestrator-dependent work until manual verification happens.
+6. For trivial local edits, proceed directly with the smallest viable local change.
+7. For non-trivial tasks that depend on browser validation, verify the required browser MCP connection before implementation begins:
+   - do a lightweight connectivity check first
+   - if the check fails, troubleshoot immediately rather than discovering the gap after coding
+   - if recovery is not possible in-session, say so explicitly and pause browser-dependent claims until an alternative validation path is agreed
+8. After discovery, implement the smallest viable change directly in the local Moodle checkout.
+9. Run quality gates:
    - `./bin/phpcs <touched paths>` for explicit whole-file linting
    - `./bin/preflight` for the normal targeted PHPCS pass
    - `./bin/preflight --changed-lines` when editing large legacy files and you want changed-line-focused PHPCS
@@ -66,15 +76,15 @@
    - `./bin/feature-smoke` when validating the full install/init/test workflow
    - `docker exec moodlemaster-webserver-1 php /var/www/html/admin/cli/purge_caches.php` after CSS, SCSS, template, or lang-string changes before browser validation, to avoid stale LMS caches affecting manual or MCP-based checks
    - `docker exec moodlemaster-webserver-1 php /var/www/html/admin/cli/purge_caches.php` after adding lang strings or template changes to an already-installed plugin without a version bump — `./bin/upgrade` alone does not clear the string cache in this case
-7. For non-trivial tasks, perform a self peer-review pass (see Self peer review section):
+10. For non-trivial tasks, perform a self peer-review pass (see Self peer review section):
    - exactly one review pass only
    - use the compact `Y / N / -` checklist format
    - classify findings as `MUST FIX` or `SHOULD FIX`
    - treat this as a correction step, not a redesign step
    - do not recurse or run a second peer review after fixes
-8. Apply all `MUST FIX` issues and any practical `SHOULD FIX` issues without expanding scope.
-9. Re-run only the validation steps affected by those fixes.
-10. Prepare final output and commit suggestions:
+11. Apply all `MUST FIX` issues and any practical `SHOULD FIX` issues without expanding scope.
+12. Re-run only the validation steps affected by those fixes.
+13. Prepare final output and commit suggestions:
    - one logical change per commit
    - tests included in the same commit that changes behaviour
    - choose the correct Moodle base branch from `docs/moodle-branching.md`

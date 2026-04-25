@@ -27,6 +27,7 @@ At the end, you will:
 - Focus on **problem clarity and value**
 - Prefer asking questions over guessing
 - Make the ticket easy for a developer to pick up without confusion
+- When the ticket is likely to be written back through Jira REST string fields, prefer conservative Jira-safe formatting over rich markdown structure
 
 ---
 
@@ -138,14 +139,30 @@ Clear, concise, outcome-focused
 Clear, testable outcomes
 
 ### Testing instructions
+- Preconditions
 - Setup
-- Steps
+- User role and login steps where relevant
+- Admin or configuration steps where relevant
+- Concrete user workflow steps
 - Expected results
+- Regression checks
+- Repeated setup paths where applicable
 
 ### Notes
 - constraints
 - assumptions
 - technical hints (if relevant)
+
+## Jira formatting rule
+
+When preparing content that may be written back through the current Jira REST string path:
+- prefer plain paragraphs and flat bullet lists
+- prefer explicit section labels over markdown heading syntax
+- separate sections with blank lines
+- avoid nested indentation-heavy list structures unless clearly necessary
+- avoid HTML and tables
+
+Do not rely on `#`, `##`, or `###` headings rendering correctly through REST string writes unless that renderer has been verified for the target field.
 
 ---
 
@@ -157,7 +174,24 @@ Before writing to Jira, ensure:
 - value is explicit
 - no major ambiguity remains
 - acceptance criteria are testable
-- testing instructions are usable
+- testing instructions are end-to-end and concrete enough for a tester unfamiliar with the work to follow
+
+Testing instructions are not complete unless they:
+- validate the actual desired behavior, not just that a setting or feature exists
+- include real workflow steps where relevant
+- include roles, login, setup, and admin configuration when those matter
+- include expected results and regression checks where relevant
+
+Reject vague testing instructions such as:
+- "confirm the plugin works"
+- "verify the feature is available"
+
+Those are incomplete unless expanded into concrete steps and expected outcomes.
+
+Also reject formatting that is likely to render poorly in Jira REST-written fields, such as:
+- heading-heavy markdown
+- mixed or deeply nested list indentation
+- layout that depends on markdown rendering quirks rather than plain readable text
 
 ---
 

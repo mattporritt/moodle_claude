@@ -100,6 +100,70 @@ These are the known-good payload shapes for the common Moodle Jira fields used f
 
 `./bin/jira-update` currently optimises for the string and textarea cases above. For more complex field types, inspect `editmeta` first and extend the serializer deliberately.
 
+## Formatting guidance for Jira content
+
+Jira Cloud's editor supports markdown-style typing in the browser editor, but rich text is stored as Atlassian Document Format (ADF). In this repo, the current REST fallback path for the common description and textarea updates is still documented as a plain string write.
+
+That means the safest default for REST-written issue content is conservative formatting rather than rich markdown structure.
+
+### Preferred formatting for REST-written descriptions and comments
+
+When writing Jira content through the current REST fallback path:
+
+- prefer plain paragraphs
+- prefer short, flat bullet lists
+- prefer explicit section labels such as `Summary:`, `Problem:`, `Testing instructions:`
+- use bold section labels only if they are known to render correctly in the chosen write path
+- separate sections with a blank line
+- keep list indentation shallow and consistent
+
+### Avoid for REST-written content unless the renderer has been verified
+
+- markdown heading syntax such as `#`, `##`, `###`
+- deeply nested bullet or numbered lists
+- mixed bullet styles in the same section
+- indentation-dependent layout tricks
+- HTML
+- tables
+
+### Safe formatting pattern
+
+Prefer shapes like:
+
+```text
+Summary:
+Short outcome-focused summary.
+
+Problem:
+Plain paragraph text.
+
+Acceptance criteria:
+- First criterion
+- Second criterion
+
+Testing instructions:
+Setup:
+- Step one
+
+Steps:
+- Step one
+- Step two
+
+Expected result:
+- Result one
+```
+
+This is intentionally more conservative than what the browser editor may allow. The goal is reliable rendering in Jira when content is supplied through the current REST string path.
+
+### If richer structure is required
+
+- prefer MCP or browser-based editing when the task depends on Jira's rich editor behavior
+- or move deliberately to an ADF-based write path rather than assuming markdown headings will render correctly through REST string writes
+
+### Practical rule
+
+If a Jira issue update is going through the REST string path, optimize for rendering reliability over pretty source markdown.
+
 ## Branch field conventions
 
 When writing Moodle branch metadata to Jira:
