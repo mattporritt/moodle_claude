@@ -84,6 +84,8 @@ Use this sequence when a Jira write is needed and MCP is unavailable or unsuitab
 5. Use `./bin/jira-update` for the write.
 6. Read the updated field values back and report the verified outcome.
 
+If the REST write fails with sandboxed DNS or network-resolution errors, retry with escalation and treat that as an environment restriction rather than as a Jira payload or permission failure.
+
 ## Common field formats
 
 These are the known-good payload shapes for the common Moodle Jira fields used from this repo.
@@ -98,7 +100,7 @@ These are the known-good payload shapes for the common Moodle Jira fields used f
 | Pull Main Diff URL | `customfield_10247` | `PUT /rest/api/2/issue/<key>` | string | Use upstream Moodle compare format with branch-point hash and fork owner branch. |
 | Comment | `comment` | `POST /rest/api/2/issue/<key>/comment` | string body | Send as `{"body":"..."}`. |
 
-`./bin/jira-update` currently optimises for the string and textarea cases above. For more complex field types, inspect `editmeta` first and extend the serializer deliberately.
+`./bin/jira-update` currently optimises for the string and textarea cases above. Branch metadata fields are part of the normal ticket-completion workflow, but the helper does not yet provide dedicated serializers for that branch-field writeback path, so use deliberate REST fallback for those fields and verify with a read-back afterward.
 
 ## Formatting guidance for Jira content
 
@@ -177,11 +179,67 @@ When writing Moodle branch metadata to Jira:
 4. Derive `<branch-point-hash>` from the git branch point against the target base branch at branch-creation time.
 5. Do not use a fork-local compare URL such as `https://github.com/<fork>/moodle/compare/main...branch` for Jira branch fields.
 
+Capture this metadata at branch-creation time and keep it available for later write-back:
+
+- base branch name
+- issue branch name
+- branch-point hash
+
+Which fields to update depends on which branches were actually pushed:
+
+- `main`-only work: update `Pull from Repository`, `Pull Main Branch`, and `Pull Main Diff URL`
+- stable-branch work: update `Pull from Repository` plus the corresponding version-specific `Pull * Branch` and `Pull * Diff URL` fields for each pushed stable branch
+
+Treat these branch metadata updates as a required completion step after push, not as an optional extra after the Jira comment.
+
+After writing branch metadata:
+
+1. Read the values back.
+2. Verify the expected repository URL, branch name, and diff URL are present.
+3. Report the exact fields updated.
+
+## Publish and write-back sequence
+
+After code is committed and ready to leave the agent in a reviewable state:
+
+1. Push the issue branch.
+2. Confirm the pushed remote and branch name.
+3. Update Jira repository, branch, and diff metadata fields.
+4. Add the implementation or status comment.
+5. Read back and verify the Jira values.
+
+Treat the status comment and the structured branch metadata fields as separate completion requirements. A good implementation comment does not replace the branch metadata update.
+
 For final implementation comments:
 
 - Keep them concise.
 - Focus on what changed, how to test, and any meaningful limitations.
 - Do not repeat requirement detail that is already clear in the description, acceptance criteria, or testing-instructions field.
+- If validation is blocked by a third-party entitlement, service access, or other external dependency, say so explicitly rather than letting the ticket read as fully validated.
+
+Preferred blocker wording:
+
+- `Implementation complete`
+- `Validation partially blocked by external dependency`
+- `Remaining verification steps once blocker is removed`
+
+Reusable implementation handoff template:
+
+```text
+Implementation complete:
+- Branch pushed: <branch-name>
+- Repository: <fork-url>
+- Updated: <short change summary>
+
+Validation completed:
+- <targeted automated/manual checks that passed>
+
+Validation partially blocked by external dependency:
+- <service, entitlement, or external dependency>
+
+Remaining verification steps once blocker is removed:
+- <manual or entitlement-dependent checks still to run>
+```
 
 For browser-facing UI changes:
 
@@ -236,6 +294,12 @@ For unsupported or complex fields, prefer:
 2. inspect `config/jira_field_map.yaml`
 3. extend the helper or use a deliberate one-off REST payload
 
+For current branch metadata fields specifically:
+
+- use `./bin/jira-update` for supported text and comment fields around the ticket update
+- use deliberate REST fallback for the branch metadata fields
+- verify those field values with a read-back afterward
+
 ## Required reporting
 
 When a Jira update is part of the workflow, report:
@@ -253,6 +317,7 @@ Typical update types include:
 - description update
 - testing instructions update
 - field update
+- branch metadata update
 
 ## Setup expectation
 

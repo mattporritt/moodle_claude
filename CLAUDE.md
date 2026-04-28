@@ -48,7 +48,11 @@
 1. Classify the task:
    - trivial local edit in already-identified files, or
    - non-trivial Moodle task requiring orchestrator-first discovery
-2. Before coding in the Moodle checkout, inspect the current git branch and working tree in `MOODLE_DIR`.
+2. Before coding in the Moodle checkout, determine the active layout and inspect the current branch:
+   - confirm whether the live tree is rooted directly at `MOODLE_DIR` or under `MOODLE_DIR/public`
+   - prefer a quick probe for files such as `version.php`, `config.php`, or the target component path before assuming repo-relative paths
+   - when running container commands, confirm real in-container locations for `config.php`, `admin/cli/*`, and other CLI paths before assuming defaults
+   - inspect the current git branch and working tree
 3. For Jira-driven work, if the checkout is not already on the correct per-issue development branch, correct that first:
    - map the Jira issue to the correct base branch using `docs/moodle-branching.md`
    - ensure work does not continue on an unrelated developer branch
@@ -65,7 +69,7 @@
 9. Run quality gates:
    - `./bin/phpcs <touched paths>` for explicit whole-file linting
    - `./bin/preflight` for the normal targeted PHPCS pass
-   - `./bin/preflight --changed-lines` when editing large legacy files and you want changed-line-focused PHPCS
+   - `./bin/preflight --changed-lines [--base-ref <ref>] [paths...]` when editing large legacy files and you want changed-line-focused PHPCS
    - `./bin/grunt amd --files=<amd/src path>` or `./bin/grunt amd --root=<component>` for targeted Moodle AMD rebuilds when JS changed
    - `./bin/grunt css --root=<theme/component>` for SCSS changes that require committed precompiled CSS output, and include the generated CSS files in the change
    - `./bin/phpunit <targeted tests>`
@@ -76,20 +80,29 @@
    - `./bin/feature-smoke` when validating the full install/init/test workflow
    - `docker exec moodlemaster-webserver-1 php /var/www/html/admin/cli/purge_caches.php` after CSS, SCSS, template, or lang-string changes before browser validation, to avoid stale LMS caches affecting manual or MCP-based checks
    - `docker exec moodlemaster-webserver-1 php /var/www/html/admin/cli/purge_caches.php` after adding lang strings or template changes to an already-installed plugin without a version bump — `./bin/upgrade` alone does not clear the string cache in this case
-10. For non-trivial tasks, perform a self peer-review pass (see Self peer review section):
+10. If a harness wrapper fails in a clearly harness-specific way, separate that from product validation:
+   - report the wrapper failure as a harness defect, not as a product failure
+   - use the nearest safe direct fallback, usually `./bin/web sh -lc 'cd /var/www/html && ...'` or an explicit host-side command, when that keeps validation targeted
+   - keep the exact failing wrapper symptom and the fallback command for the final report
+11. For non-trivial tasks, perform a self peer-review pass (see Self peer review section):
    - exactly one review pass only
    - use the compact `Y / N / -` checklist format
    - classify findings as `MUST FIX` or `SHOULD FIX`
    - treat this as a correction step, not a redesign step
    - do not recurse or run a second peer review after fixes
-11. Apply all `MUST FIX` issues and any practical `SHOULD FIX` issues without expanding scope.
-12. Re-run only the validation steps affected by those fixes.
-13. Prepare final output and commit suggestions:
+12. Apply all `MUST FIX` issues and any practical `SHOULD FIX` issues without expanding scope.
+13. Re-run only the validation steps affected by those fixes.
+14. Prepare final output and commit suggestions:
    - one logical change per commit
    - tests included in the same commit that changes behaviour
    - choose the correct Moodle base branch from `docs/moodle-branching.md`
    - never commit directly to `main` or `MOODLE_*_STABLE`; use issue-specific development branches instead
    - branch and commit message aligned to Moodle issue style: `MDL-12345 component_name: concise imperative summary`
+15. Include a dedicated handoff subsection for any known harness defects observed during the task:
+   - failing wrapper or tool
+   - exact failing symptom
+   - whether product validation was still completed via a safe fallback
+   - workaround command used
 
 ## Orchestrator-first policy
 
@@ -115,6 +128,11 @@
   - a real orchestrator config such as `config.local.toml` exists in the sibling orchestrator repo, not in `~/projects/moodle/claude`
   - `PYTHONPATH=src python3 -m agentic_orchestrator.cli verify --config ./config.local.toml` returns `READY` or `DEGRADED` (not `NOT_READY`) when run from `~/projects/agentic_orchestrator`
   - at least one real `query` or `pilot-run` succeeds against that config when run from `~/projects/agentic_orchestrator`
+- Known-good copy-safe examples from the sibling orchestrator repo:
+  - `PYTHONPATH=src python3 -m agentic_orchestrator.cli verify --config ./config.local.toml`
+  - `PYTHONPATH=src python3 -m agentic_orchestrator.cli health --config ./config.local.toml --json`
+  - `PYTHONPATH=src python3 -m agentic_orchestrator.cli query --config ./config.local.toml "How does Moodle usually implement admin settings pages for this subsystem?" --tools docs,code --route-mode auto`
+- If `verify` is slow or appears hung, use `health --json` as the trust/readiness fallback and inspect `usable_for` before relying on any orchestrator-backed result.
 - Treat warnings pragmatically:
   - stale sitemap or similarly stale resource warnings can still allow docs/code pattern discovery, but reduce trust in site-context freshness
   - warnings affecting `agentic_devdocs`, `agentic_indexer`, or `agentic_debug` contracts or tool availability should be called out as reducing trust in those specific sources
@@ -147,6 +165,7 @@
   - Chrome or Firefox: open a blank or `data:` page and confirm a snapshot loads.
   - Atlassian: fetch current user info and list accessible resources.
 - If a Chrome or Firefox MCP call fails with "Target page, context or browser has been closed" or similar, the MCP server process is still alive but has lost its browser context. This requires a Claude Code session restart to recover — it cannot be fixed mid-session by retrying. Note the gap in the task summary and continue with other validation methods (CLI, `curl`).
+- If Moodle's configured site URL uses a container-only hostname such as `http://webserver` or `https://webserver`, inspect published Docker port mappings and use the localhost-mapped URL for MCP browser work.
 - For non-trivial tasks where rendered UI is part of acceptance, do not defer browser MCP checks until after implementation.
 - If one browser MCP is unavailable, try the other relevant browser MCP promptly rather than waiting for a later validation step to fail.
 - If both browser MCP servers are unavailable and the task depends on real browser inspection, call that out early as a validation blocker or explicit gap.
@@ -202,6 +221,19 @@
 - For targeted feature execution, prefer Moodle-checkout-relative feature paths from the repo root.
 - The wrapper now normalizes feature paths before handing them to Moodle's Behat runner so feature execution does not depend on the container working directory.
 - If Behat or the acceptance site requires reinitialisation during the task, report that clearly as an environment/setup step and do not blur it into product-level validation.
+- After plugin version bumps, `version.php` changes, or other upgrade-sensitive plugin metadata changes, expect that the Behat site may be stale after `./bin/upgrade`; run `./bin/behat-init` before treating the next Behat result as a real acceptance signal.
+
+## Scheduled task validation
+
+For scheduled-task work, the expected validation path is:
+- `./bin/preflight`
+- `./bin/upgrade`
+- PHPUnit tests in `tests/task/` (required — CLI execution alone does not assert correctness)
+- runtime smoke-check: `docker exec <webserver-container> php /var/www/html/admin/cli/scheduled_task.php --execute='\component\task\classname'`
+- admin login and validation on `/admin/tool/task/scheduledtasks.php`
+- confirmation of a safe observable effect
+
+Treat that sequence as the normal acceptance path for new scheduled-task work, not an optional extra.
 
 ## Working with a large codebase
 
@@ -237,6 +269,10 @@ After implementation and initial validation on non-trivial tasks, perform a sing
 - Before starting Jira-driven implementation work, inspect the current Moodle checkout branch and correct it if it is unrelated to the issue.
 - Treat an unexpected existing developer branch in the Moodle checkout as a warning sign that must be resolved before new implementation starts.
 - Create per-issue development branches from the correct base branch, for example `MOODLE_502_STABLE_MDL-12345`.
+- Capture the branch point at branch-creation time for each issue branch:
+  - base branch name
+  - issue branch name
+  - branch-point hash from `git merge-base <base-branch> <issue-branch>`
 - Push development branches to the developer's own fork or repository, not the main Moodle LMS repository.
 - Commit messages should use Moodle issue style: `MDL-12345 component_name: concise imperative summary`
 
