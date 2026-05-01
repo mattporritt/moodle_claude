@@ -275,6 +275,13 @@ ticket_completion_expectations:
     - "Relevant diff URL fields populated in upstream Moodle compare format"
     - "Code and ticket left in a complete state for reviewer efficiency"
 
+  after_push:
+    - "Pushed remote and branch confirmed"
+    - "Relevant Jira repository, branch, and diff fields updated"
+    - "Branch metadata verified by read-back"
+    - "Status or implementation comment added"
+    - "Comment and metadata updates both treated as required"
+
 uncertain_or_todo:
   - concept: "Additional branch fields for future versions"
     status: "verify later"
