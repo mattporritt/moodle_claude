@@ -29,6 +29,17 @@
   3. `require_capability('plugin:capability', $context)` — only for protected functions; omit for public endpoints with `loginrequired => false`
   Skipping `validate_context()` is never correct, even for public read functions.
 - Every Moodle plugin must include a privacy provider at `classes/privacy/provider.php`. If the plugin stores no personal data, implement `\core_privacy\local\metadata\null_provider` with a `get_reason()` method returning a lang string key (e.g. `'privacy:metadata'`), and add the corresponding string to the lang file. Omitting this causes the core privacy compliance test (`core_privacy\privacy\provider_test`) to fail.
+- **Privacy provider scope — plugins vs core tables:**
+  - *Plugin tables* (defined in a plugin's `db/install.xml`): the plugin's own `classes/privacy/provider.php` covers them.
+  - *Core tables* (defined in `lib/db/install.xml`): they must be covered in `lib/classes/privacy/provider.php` (`core\privacy\provider`). A new core table with a `userid` or other personal-data field that is not declared there will fail `core_privacy\privacy\provider_test::test_table_coverage`.
+  - Run `./bin/phpunit public/privacy/tests/privacy/provider_test.php` (or the targeted `--filter test_table_coverage`) any time a new table with user-linked fields is added to `lib/db/install.xml`.
+- **Full privacy provider lifecycle** — when a table stores real user data (not just an audit/operational reference to a userid), a proper provider must implement all of:
+  1. `get_metadata()` — declare the table and its personal-data fields with lang string keys; add corresponding strings to the plugin or core lang file (`lang/en/moodle.php` for core).
+  2. `get_contexts_for_userid()` — SQL join to return user contexts.
+  3. `get_users_in_context()` — SQL to return distinct userids in a context.
+  4. `export_user_data()` — fetch and export the records; omit raw security tokens (hashes, selectors) from the export.
+  5. `delete_data_for_all_users_in_context()`, `delete_data_for_user()`, `delete_data_for_users()` — delete the records on erasure request.
+  Tables that only record *who performed an admin action* (e.g. `config_log`, `upgrade_log`) are declared in metadata but not exported or deleted; treat them like the existing patterns in `lib/classes/privacy/provider.php`.
 - PHPUnit tests are required for all web service functions and scheduled tasks — a CLI smoke-run proves the code path executes but does not assert correctness. Test files live in `tests/external/` and `tests/task/` respectively, extend `\advanced_testcase`, and must cover both the default (no config) and configured cases.
 - For Moodle AMD JavaScript work, `amd/src/` is the source of truth and `amd/build/` is generated output.
 - For newly created files, full-file PHPCS is appropriate.
@@ -98,6 +109,7 @@
    - choose the correct Moodle base branch from `docs/moodle-branching.md`
    - never commit directly to `main` or `MOODLE_*_STABLE`; use issue-specific development branches instead
    - branch and commit message aligned to Moodle issue style: `MDL-12345 component_name: concise imperative summary`
+   - immediately after committing, push the issue branch to the developer's named remote fork: `git push mattp <branch>` — the Jira diff URL written in the next step depends on the branch being visible on GitHub
 15. Include a dedicated handoff subsection for any known harness defects observed during the task:
    - failing wrapper or tool
    - exact failing symptom
@@ -159,6 +171,10 @@
 - Use Chrome MCP for Chromium-based UI checks, console/network inspection, screenshots, and performance traces.
 - Use Firefox MCP for second-browser reproduction and Gecko-specific behaviour.
 - Use Atlassian MCP for Jira and Confluence search, issue/page retrieval, and small coordination tasks.
+- Use GitHub MCP for CI diagnostics: workflow run status, job details, and job logs. See `docs/github-mcp.md` for tool names, connectivity check, and access patterns.
+  - GitHub Actions logs require authentication — unauthenticated REST calls (`curl` to `api.github.com/actions/jobs/{id}/logs`) return 403. Always use GitHub MCP for log retrieval, not raw API calls.
+  - The unauthenticated annotations API (`/actions/runs/{id}/annotations`) only returns high-level check annotations, not the actual test failure output. For the real failure, get the job log via MCP.
+  - Lightweight connectivity check: list recent workflow runs for the repo and confirm a response returns.
 - Use `docs/jira-writeback.md` as the source of truth for Jira read-vs-write behavior and Jira write-back fallback order.
 - Both Chrome and Firefox MCP run headless — the browser process is hidden and cannot be accidentally closed by the user. Output files (snapshots, logs) go to `~/.claude/playwright-output/`.
 - When a task depends on an MCP server, start with a lightweight connectivity check:
@@ -274,6 +290,7 @@ After implementation and initial validation on non-trivial tasks, perform a sing
   - issue branch name
   - branch-point hash from `git merge-base <base-branch> <issue-branch>`
 - Push development branches to the developer's own fork or repository, not the main Moodle LMS repository.
+- Push the issue branch immediately after committing — before writing branch metadata to Jira. The Jira diff URL (Pull Main Diff URL) is a GitHub compare link that only resolves if the branch exists on the remote.
 - Commit messages should use Moodle issue style: `MDL-12345 component_name: concise imperative summary`
 
 ## Practical rules for this repo
